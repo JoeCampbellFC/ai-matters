@@ -1,14 +1,19 @@
-import Footer from './components/Footer'
-import Header from './components/Header'
-import Home from './pages/Home'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { AppShell } from '@/components/layout/AppShell'
+import { WorkspacesPage } from '@/pages/WorkspacesPage'
+import { WorkspaceDetailPage } from '@/pages/WorkspaceDetailPage'
+import { SettingsPage } from '@/pages/SettingsPage'
 
 function App() {
   return (
-    <div className="flex min-h-screen flex-col bg-white dark:bg-slate-950">
-      <Header />
-      <Home />
-      <Footer />
-    </div>
+    <AppShell>
+      <Routes>
+        <Route path="/" element={<Navigate to="/workspaces" replace />} />
+        <Route path="/workspaces" element={<WorkspacesPage />} />
+        <Route path="/workspaces/:id" element={<WorkspaceDetailPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Routes>
+    </AppShell>
   )
 }
 
