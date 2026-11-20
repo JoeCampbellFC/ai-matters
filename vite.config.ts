@@ -34,6 +34,9 @@ export default defineConfig({
       '/api': {
         target: backendUrl,
         changeOrigin: true,
+        // Forward X-Forwarded-Proto so Express (trust proxy) sees the request
+        // as HTTPS; without this, express-session silently drops secure cookies.
+        xfwd: true,
       },
     },
   },

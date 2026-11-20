@@ -13,5 +13,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    // The default threads/forks pools are unreliable on some Windows setups
+    // (intermittent "failed to find the runner"/worker-state errors across
+    // multiple test files); vmForks has been reliable where those weren't.
+    pool: 'vmForks',
   },
 })

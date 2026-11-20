@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Link } from 'react-router-dom'
 import { useWorkspaceCache } from '@/context/WorkspaceCacheContext'
+import { MatterKnowledgePanel } from '@/components/matterResearch/MatterKnowledgePanel'
 
 const FIELDS: Array<{ key: 'client' | 'matter' | 'owner' | 'lastModified'; label: string; icon: typeof Building2 }> = [
   { key: 'client', label: 'Client', icon: Building2 },
@@ -57,6 +58,8 @@ export function WorkspaceDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {workspace && <MatterKnowledgePanel workspaceId={workspace.id} />}
     </div>
   )
 }

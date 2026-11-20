@@ -50,6 +50,40 @@ describe('buildSearchWorkspacesArgs', () => {
     const t = tool({ inputSchema: { type: 'object', properties: { unrelated: { type: 'number' } } } })
     expect(() => buildSearchWorkspacesArgs(t, { query: 'acme' })).toThrow(UnsupportedSearchInputError)
   })
+
+  it('maps onto a nested field inside a required object parameter (e.g. iManage searchParams)', () => {
+    const t = tool({
+      inputSchema: {
+        type: 'object',
+        properties: {
+          searchParams: {
+            type: 'object',
+            properties: { name: { type: 'string' }, anywhere: { type: 'string' } },
+          },
+        },
+        required: ['searchParams'],
+      },
+    })
+    expect(buildSearchWorkspacesArgs(t, { query: 'acme' })).toEqual({ searchParams: { anywhere: 'acme' } })
+  })
+
+  it('includes a library filter nested inside the required object parameter when present', () => {
+    const t = tool({
+      inputSchema: {
+        type: 'object',
+        properties: {
+          searchParams: {
+            type: 'object',
+            properties: { anywhere: { type: 'string' }, library_id: { type: 'string' } },
+          },
+        },
+        required: ['searchParams'],
+      },
+    })
+    expect(buildSearchWorkspacesArgs(t, { query: 'acme', libraryId: 'LIB1' })).toEqual({
+      searchParams: { anywhere: 'acme', library_id: 'LIB1' },
+    })
+  })
 })
 
 describe('buildRecentWorkspacesArgs', () => {

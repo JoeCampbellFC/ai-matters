@@ -1,0 +1,119 @@
+/**
+ * Mirrors server/src/matterResearch/types.ts — kept hand-in-sync with the
+ * backend, same convention as Workspace mirroring workspaceMapper.ts.
+ */
+export type ResearchStage =
+  | 'initializing'
+  | 'planning_searches'
+  | 'traversing_workspace'
+  | 'searching'
+  | 'verifying_membership'
+  | 'ranking_candidates'
+  | 'selecting_documents'
+  | 'reading_documents'
+  | 'assessing_coverage'
+  | 'synthesizing'
+
+export type ResearchRunStatus = 'running' | 'succeeded' | 'failed' | 'cancelled'
+
+export type DocumentStatus = 'candidate' | 'selected' | 'reading' | 'reviewed' | 'used' | 'excluded'
+
+export type DiscoverySource = 'container_traversal' | 'global_search'
+
+export interface ResearchDocument {
+  documentId: string
+  name?: string
+  docType?: string
+  status: DocumentStatus
+  reason?: string
+  discoveredVia?: DiscoverySource[]
+}
+
+export interface CoverageGap {
+  topic: string
+  reason: string
+  suggestedQueries?: string[]
+}
+
+export interface CoverageAssessment {
+  coveredTopics: string[]
+  gaps: CoverageGap[]
+}
+
+export interface CitationRegistryEntry {
+  marker: string
+  documentId: string
+  documentName?: string
+  version?: string
+  link?: string
+}
+
+export type ResearchEventType =
+  | 'run_started'
+  | 'stage_changed'
+  | 'activity'
+  | 'document_discovered'
+  | 'document_status_changed'
+  | 'coverage_assessed'
+  | 'run_succeeded'
+  | 'run_failed'
+  | 'run_cancelled'
+  | 'heartbeat'
+
+interface ResearchEventBase {
+  seq: number
+  ts: string
+  runId: string
+  type: ResearchEventType
+}
+
+export type ResearchEvent =
+  | (ResearchEventBase & { type: 'run_started'; workspaceId: string })
+  | (ResearchEventBase & { type: 'stage_changed'; stage: ResearchStage; iteration: number })
+  | (ResearchEventBase & {
+      type: 'activity'
+      stage: ResearchStage
+      message: string
+      detail?: Record<string, unknown>
+    })
+  | (ResearchEventBase & {
+      type: 'document_discovered'
+      document: {
+        documentId: string
+        name?: string
+        docType?: string
+        status: DocumentStatus
+        discoveredVia: DiscoverySource[]
+      }
+    })
+  | (ResearchEventBase & {
+      type: 'document_status_changed'
+      documentId: string
+      status: DocumentStatus
+      reason?: string
+    })
+  | (ResearchEventBase & { type: 'coverage_assessed'; coveredTopics: string[]; gaps: CoverageGap[]; iteration: number })
+  | (ResearchEventBase & {
+      type: 'run_succeeded' | 'run_failed' | 'run_cancelled'
+      summary?: { documentsUsed: number; tokensUsed: number; durationMs: number }
+      error?: { code: string; message: string }
+    })
+  | (ResearchEventBase & { type: 'heartbeat' })
+
+/** Shape of GET /api/matters/research/:runId */
+export interface RunSnapshot {
+  runId: string
+  workspaceId: string
+  status: ResearchRunStatus
+  stage: ResearchStage
+  documents: ResearchDocument[]
+  coverage?: CoverageAssessment
+  error?: { code: string; message: string }
+}
+
+export interface ResearchActivityItem {
+  seq: number
+  ts: string
+  stage: ResearchStage
+  message: string
+}

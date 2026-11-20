@@ -6,7 +6,10 @@ import { authRouter } from './routes/auth.js'
 import { mcpRouter } from './routes/mcp.js'
 import { workspacesRouter } from './routes/workspaces.js'
 import { librariesRouter } from './routes/libraries.js'
+import { matterResearchRouter } from './routes/matterResearch.js'
 import { classifyError } from './httpErrors.js'
+import { verifyAzureOpenAiConnectivity } from './llm/azureOpenAI.js'
+import { sweepStaleRuns } from './matterResearch/runManager.js'
 
 const app = express()
 
@@ -30,6 +33,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/mcp', mcpRouter)
 app.use('/api/workspaces', workspacesRouter)
 app.use('/api/libraries', librariesRouter)
+app.use('/api/matters', matterResearchRouter)
 
 app.use((req, res) => {
   res.status(404).json({ error: { code: 'not_found', message: `No route for ${req.method} ${req.path}` } })
@@ -48,3 +52,11 @@ app.listen(config.port, () => {
   console.log(`AI Matters backend listening on http://localhost:${config.port}`)
   console.log(`iManage MCP endpoint: ${config.imanageMcpUrl}`)
 })
+
+// Non-blocking: Phase 1 auth/workspace features must keep working even if
+// Azure OpenAI is unreachable or not yet configured.
+verifyAzureOpenAiConnectivity().catch((error) => {
+  console.error('[server] Azure OpenAI connectivity check failed at startup:', (error as Error).message)
+})
+
+setInterval(sweepStaleRuns, 5 * 60 * 1000).unref()
