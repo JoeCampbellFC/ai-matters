@@ -12,10 +12,12 @@ import { GenerateSummaryButton } from './GenerateSummaryButton'
 import { MarkdownViewer } from './MarkdownViewer'
 import { ResearchActivityFeed } from './ResearchActivityFeed'
 import { ResearchDocumentTable } from './ResearchDocumentTable'
+import { ResearchSkillCard } from './ResearchSkillCard'
 import { ResearchStageTimeline } from './ResearchStageTimeline'
 
 export function MatterKnowledgePanel({ workspaceId }: { workspaceId: string }) {
-  const { runId, status, stage, documents, activity, coverage, error, start, cancel } = useMatterResearch(workspaceId)
+  const { runId, status, stage, documents, activity, coverage, skill, error, start, cancel } =
+    useMatterResearch(workspaceId)
   const isMobile = useIsMobile()
   const [markdown, setMarkdown] = useState<string | undefined>()
   const [markdownError, setMarkdownError] = useState<string | undefined>()
@@ -46,6 +48,7 @@ export function MatterKnowledgePanel({ workspaceId }: { workspaceId: string }) {
           <CardDescription>Live progress as the agent explores the workspace.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          <ResearchSkillCard skill={skill} />
           <ResearchStageTimeline stage={stage} status={status} />
           <ResearchActivityFeed items={activity} />
         </CardContent>

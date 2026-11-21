@@ -3,6 +3,7 @@ import type { CitationRegistryEntry, ResearchEvent, ResearchEventType, RunSnapsh
 
 const RESEARCH_EVENT_TYPES: ResearchEventType[] = [
   'run_started',
+  'skill_selected',
   'stage_changed',
   'activity',
   'document_discovered',

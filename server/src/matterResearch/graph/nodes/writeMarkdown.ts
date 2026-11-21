@@ -1,6 +1,7 @@
 import { getAzureChatModel } from '../../../llm/azureOpenAI.js'
 import { buildCitationRegistry } from '../../synthesis.js'
 import { incrementBudget } from '../../budget.js'
+import { getSkill } from '../../skills.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
 import { emit, type NodeConfig } from './shared.js'
 
@@ -25,6 +26,8 @@ export async function writeMarkdown(state: ResearchState, config: NodeConfig): P
   const sectionMarkdown: string[] = []
   let llmCalls = 0
 
+  const skillBody = state.skill ? getSkill(state.skill.name)?.body : undefined
+
   for (const section of outline) {
     const sectionEvidence = state.evidence.filter((item) => section.evidenceIds.includes(item.id))
     const evidenceListing = sectionEvidence
@@ -37,12 +40,15 @@ export async function writeMarkdown(state: ResearchState, config: NodeConfig): P
     const prompt = [
       `Write the "${section.heading}" section of a Matter Knowledge File for an iManage matter.`,
       `Suggested topics to cover: ${section.topics.join(', ') || '(use your judgement based on the evidence below)'}`,
+      skillBody ? `Research playbook guidance for this matter type:\n${skillBody}` : undefined,
       'Evidence available for this section (already attributed to a citation marker):',
       evidenceListing || '(no directly supporting evidence was found for this section)',
       'Write clear, substantive Markdown prose (paragraphs and, where useful, lists or tables). Cite every',
       'material factual statement with its [Dxx] marker exactly as given above. If there is no evidence, say so',
       'plainly rather than inventing content. Do not repeat the section heading in your response.',
-    ].join('\n')
+    ]
+      .filter((line): line is string => Boolean(line))
+      .join('\n')
 
     const response = await model.invoke(prompt, { signal: config.signal })
     llmCalls += 1

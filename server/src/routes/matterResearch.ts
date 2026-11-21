@@ -89,6 +89,7 @@ matterResearchRouter.get('/research/:runId', (req, res, next) => {
       stage: run.stage,
       documents: Array.from(run.documents.values()),
       coverage: run.coverage,
+      skill: run.skill,
       error: run.error,
     })
   } catch (error) {

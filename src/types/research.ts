@@ -48,8 +48,16 @@ export interface CitationRegistryEntry {
   link?: string
 }
 
+/** The research playbook selected for this run -- see server/src/matterResearch/skills.ts. */
+export interface SelectedSkill {
+  name: string
+  description: string
+  rationale: string
+}
+
 export type ResearchEventType =
   | 'run_started'
+  | 'skill_selected'
   | 'stage_changed'
   | 'activity'
   | 'document_discovered'
@@ -69,6 +77,7 @@ interface ResearchEventBase {
 
 export type ResearchEvent =
   | (ResearchEventBase & { type: 'run_started'; workspaceId: string })
+  | (ResearchEventBase & { type: 'skill_selected'; skillName: string; description: string; rationale: string })
   | (ResearchEventBase & { type: 'stage_changed'; stage: ResearchStage; iteration: number })
   | (ResearchEventBase & {
       type: 'activity'
@@ -108,6 +117,7 @@ export interface RunSnapshot {
   stage: ResearchStage
   documents: ResearchDocument[]
   coverage?: CoverageAssessment
+  skill?: SelectedSkill
   error?: { code: string; message: string }
 }
 

@@ -18,6 +18,13 @@ export type DiscoverySource = 'container_traversal' | 'global_search'
 export type MembershipVerifiedBy = 'container_traversal' | 'profile_match'
 export type MembershipExcludedReason = 'wrong_workspace' | 'membership_unverifiable' | 'profile_lookup_failed'
 
+/** The research playbook selected for this run -- see matterResearch/skills.ts. */
+export interface SelectedSkill {
+  name: string
+  description: string
+  rationale: string
+}
+
 export interface SearchPlan {
   query: string
   rationale: string
@@ -100,6 +107,7 @@ export interface BudgetCounters {
 
 export type ResearchEventType =
   | 'run_started'
+  | 'skill_selected'
   | 'stage_changed'
   | 'activity'
   | 'document_discovered'
@@ -119,6 +127,7 @@ interface ResearchEventBase {
 
 export type ResearchEvent =
   | (ResearchEventBase & { type: 'run_started'; workspaceId: string })
+  | (ResearchEventBase & { type: 'skill_selected'; skillName: string; description: string; rationale: string })
   | (ResearchEventBase & { type: 'stage_changed'; stage: ResearchStage; iteration: number })
   | (ResearchEventBase & {
       type: 'activity'

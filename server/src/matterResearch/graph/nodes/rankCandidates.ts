@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { getAzureChatModel } from '../../../llm/azureOpenAI.js'
 import { incrementBudget } from '../../budget.js'
+import { getSkill } from '../../skills.js'
 import type { CandidateDocument } from '../../types.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
 import { emit, type NodeConfig } from './shared.js'
@@ -38,6 +39,8 @@ export async function rankCandidates(state: ResearchState, config: NodeConfig): 
     )
     .join('\n')
 
+  const skillBody = state.skill ? getSkill(state.skill.name)?.body : undefined
+
   const prompt = [
     'Assess how useful each candidate document is likely to be for understanding this iManage matter, using only',
     'the metadata below (the documents have not been read yet).',
@@ -45,9 +48,13 @@ export async function rankCandidates(state: ResearchState, config: NodeConfig): 
     'Consider: relevance to the overall matter, likelihood of containing substantive facts, authoritativeness and',
     'finality, coverage of important activities, uniqueness versus other candidates, and currency/version status.',
     "Don't let recency alone dominate -- a final signed agreement from years ago may matter more than a routine",
-    'recent email. Candidates:',
+    'recent email.',
+    skillBody ? `Research playbook guidance for this matter type:\n${skillBody}` : undefined,
+    'Candidates:',
     listing,
-  ].join('\n')
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join('\n')
 
   const model = getAzureChatModel().withStructuredOutput(RankingSchema)
   const response = await model.invoke(prompt, { signal: config.signal })

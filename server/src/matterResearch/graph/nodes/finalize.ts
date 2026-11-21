@@ -36,13 +36,16 @@ function renderResearchCoverage(state: ResearchState): string {
   const lines = [
     '## 16. Research Coverage',
     '',
+    state.skill
+      ? `- Research playbook used: **${state.skill.name}** -- ${state.skill.description} (${state.skill.rationale})`
+      : undefined,
     `- Search queries executed: ${state.searchPlans.length}`,
     `- Document candidates discovered: ${candidates.length}`,
     `- Documents selected: ${state.selectedDocumentIds.length}`,
     `- Documents successfully read: ${usedCount}`,
     `- Documents excluded (workspace membership could not be verified, or did not match): ${excludedCount}`,
     `- Remaining evidence gaps: ${state.coverage?.gaps.map((g) => g.topic).join('; ') || 'none identified'}`,
-  ]
+  ].filter((line): line is string => line !== undefined)
   if (state.budget.exceeded) {
     lines.push(
       `- **Note:** this run stopped early due to the \`${state.budget.exceeded}\` budget limit; coverage may be incomplete.`,
@@ -72,6 +75,7 @@ export async function finalize(state: ResearchState, config: NodeConfig): Promis
     `generated_at: "${new Date().toISOString()}"`,
     'source_system: "iManage Work"',
     `evidence_documents: ${state.citationRegistry.length}`,
+    state.skill ? `research_playbook: "${state.skill.name}"` : undefined,
     '---',
   ]
     .filter((line): line is string => Boolean(line))

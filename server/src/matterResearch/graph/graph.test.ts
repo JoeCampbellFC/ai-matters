@@ -11,6 +11,8 @@ const { invoke, getAzureChatModel } = vi.hoisted(() => {
    * test to each node's internal (unexported) zod schema.
    */
   const allInOneResponse = {
+    skillName: 'general-matter-research',
+    rationale: 'No more specific matter type is evident yet.',
     searches: [{ query: 'engagement letter', rationale: 'likely to establish matter scope' }],
     rankings: [] as Array<{ documentId: string; relevanceScore: number; rationale: string }>,
     claims: [] as Array<{ claim: string; quote?: string; topic: string; confidence: 'high' | 'medium' | 'low' }>,
@@ -90,9 +92,10 @@ describe('buildMatterResearchGraph', () => {
     expect(finalState.markdown).toContain('Matter Knowledge File: Acme Matter')
     expect(finalState.markdown).toContain('## 14. Evidence and Source References')
 
-    // Bounded, not runaway: planSearches + assessCoverage run once per pass (3
-    // passes: iterations 0,1,2) = 6, plus buildOutline + one writeMarkdown call
-    // per section (14) + at most 2 validateCitations repairs = at most 23.
-    expect(invoke.mock.calls.length).toBeLessThanOrEqual(23)
+    // Bounded, not runaway: one skill-selection call (first pass only) +
+    // planSearches + assessCoverage once per pass (3 passes: iterations 0,1,2)
+    // = 7, plus buildOutline + one writeMarkdown call per section (14) + at
+    // most 2 validateCitations repairs = at most 24.
+    expect(invoke.mock.calls.length).toBeLessThanOrEqual(24)
   })
 })

@@ -21,6 +21,7 @@ function state(overrides: Partial<ResearchState> = {}): ResearchState {
     workspace: undefined,
     containerId: undefined,
     containerTraversalComplete: false,
+    skill: undefined,
     searchPlans: [],
     candidates: {},
     selectedDocumentIds: [],

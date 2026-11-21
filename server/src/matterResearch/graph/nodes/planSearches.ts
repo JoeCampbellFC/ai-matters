@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { getAzureChatModel } from '../../../llm/azureOpenAI.js'
 import { incrementBudget } from '../../budget.js'
+import { getFallbackSkill, getSkill, listSkillSummaries } from '../../skills.js'
+import type { SelectedSkill } from '../../types.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
 import { emit, type NodeConfig } from './shared.js'
 
@@ -11,8 +13,59 @@ const SearchPlanSchema = z.object({
     .max(6),
 })
 
+const SkillSelectionSchema = z.object({
+  skillName: z.string(),
+  rationale: z.string().min(1),
+})
+
+/**
+ * One-time (per run) skill selection: shows the model only the cheap
+ * name/description catalog (stage-1 disclosure), has it pick the best-fit
+ * research playbook, then resolves the full body separately so later prompts
+ * (here and in rankCandidates/writeMarkdown) can use it. Costs exactly one
+ * extra LLM call per run, not per refine pass.
+ */
+async function selectSkill(state: ResearchState, config: NodeConfig): Promise<SelectedSkill> {
+  const summaries = listSkillSummaries()
+  const prompt = [
+    "Choose the research playbook that best matches this matter, based on its name and description only -- you haven't read any documents yet.",
+    `Matter: ${state.workspace?.name ?? state.workspaceId}`,
+    state.workspace?.client ? `Client: ${state.workspace.client}` : undefined,
+    state.workspace?.matter ? `Matter description: ${state.workspace.matter}` : undefined,
+    'Available playbooks:',
+    ...summaries.map((summary) => `- ${summary.name}: ${summary.description}`),
+    'If nothing fits clearly, choose "general-matter-research".',
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join('\n')
+
+  const model = getAzureChatModel().withStructuredOutput(SkillSelectionSchema)
+  const response = await model.invoke(prompt, { signal: config.signal })
+  const matched = getSkill(response.skillName) ?? getFallbackSkill()
+  return { name: matched.name, description: matched.description, rationale: response.rationale }
+}
+
 export async function planSearches(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
   emit(config, { type: 'activity', stage: 'planning_searches', message: 'Planning document searches…' })
+
+  let skillLlmCalls = 0
+  let skill = state.skill
+  if (!skill) {
+    skill = await selectSkill(state, config)
+    skillLlmCalls = 1
+    emit(config, {
+      type: 'skill_selected',
+      skillName: skill.name,
+      description: skill.description,
+      rationale: skill.rationale,
+    })
+    emit(config, {
+      type: 'activity',
+      stage: 'planning_searches',
+      message: `Using the "${skill.name}" research playbook`,
+    })
+  }
+  const skillBody = getSkill(skill.name)?.body
 
   const isRefinement = state.coverage !== undefined
   const iteration = isRefinement ? state.budget.iterationCount + 1 : state.budget.iterationCount
@@ -35,6 +88,7 @@ export async function planSearches(state: ResearchState, config: NodeConfig): Pr
     `Matter: ${state.workspace?.name ?? state.workspaceId}`,
     state.workspace?.client ? `Client: ${state.workspace.client}` : undefined,
     state.workspace?.matter ? `Matter description: ${state.workspace.matter}` : undefined,
+    skillBody ? `Research playbook guidance for this matter type:\n${skillBody}` : undefined,
     ...instructions,
   ]
     .filter((line): line is string => Boolean(line))
@@ -50,7 +104,8 @@ export async function planSearches(state: ResearchState, config: NodeConfig): Pr
   })
 
   return {
+    skill,
     searchPlans: response.searches.map((plan) => ({ ...plan, iteration })),
-    budget: incrementBudget(state.budget, { llmCalls: 1, iterationCount: isRefinement ? 1 : 0 }),
+    budget: incrementBudget(state.budget, { llmCalls: 1 + skillLlmCalls, iterationCount: isRefinement ? 1 : 0 }),
   }
 }

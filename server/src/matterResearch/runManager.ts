@@ -15,6 +15,7 @@ import type {
   ResearchEvent,
   ResearchRunStatus,
   ResearchStage,
+  SelectedSkill,
 } from './types.js'
 
 export interface RunDocumentSnapshot {
@@ -40,6 +41,7 @@ export interface ResearchRunRecord {
   /** Live projections kept in sync as events are pushed, so a snapshot poll never has to re-scan the full event log. */
   documents: Map<string, RunDocumentSnapshot>
   coverage?: CoverageAssessment
+  skill?: SelectedSkill
   result?: { markdown: string; citationRegistry: CitationRegistryEntry[] }
   error?: { code: string; message: string }
   /** Resolves once the graph run has fully settled (succeeded/failed/cancelled). */
@@ -68,6 +70,8 @@ function applyProjection(run: ResearchRunRecord, event: ResearchEvent): void {
     })
   } else if (event.type === 'coverage_assessed') {
     run.coverage = { coveredTopics: event.coveredTopics, gaps: event.gaps }
+  } else if (event.type === 'skill_selected') {
+    run.skill = { name: event.skillName, description: event.description, rationale: event.rationale }
   }
 }
 

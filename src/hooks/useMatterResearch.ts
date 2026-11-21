@@ -8,6 +8,7 @@ import type {
   ResearchRunStatus,
   ResearchStage,
   RunSnapshot,
+  SelectedSkill,
 } from '@/types/research'
 
 interface MatterResearchState {
@@ -17,6 +18,7 @@ interface MatterResearchState {
   documents: Record<string, ResearchDocument>
   activity: ResearchActivityItem[]
   coverage?: CoverageAssessment
+  skill?: SelectedSkill
   error?: { code: string; message: string }
 }
 
@@ -35,6 +37,11 @@ function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterRes
   switch (event.type) {
     case 'run_started':
       return state
+    case 'skill_selected':
+      return {
+        ...state,
+        skill: { name: event.skillName, description: event.description, rationale: event.rationale },
+      }
     case 'stage_changed':
       return { ...state, stage: event.stage }
     case 'activity': {
@@ -91,6 +98,7 @@ function reducer(state: MatterResearchState, action: Action): MatterResearchStat
         stage: action.snapshot.stage,
         documents: Object.fromEntries(action.snapshot.documents.map((doc) => [doc.documentId, doc])),
         coverage: action.snapshot.coverage,
+        skill: action.snapshot.skill,
         error: action.snapshot.error,
       }
     case 'event':
@@ -162,6 +170,7 @@ export function useMatterResearch(workspaceId: string) {
     documents: Object.values(state.documents),
     activity: state.activity,
     coverage: state.coverage,
+    skill: state.skill,
     error: state.error,
     start,
     cancel,
