@@ -13,23 +13,38 @@ export async function verifyMembership(state: ResearchState, config: NodeConfig)
     return {}
   }
 
-  emit(config, { type: 'activity', stage: 'verifying_membership', message: 'Verifying workspace membership…' })
-
-  let mcpCalls = 0
-  const getDocumentProfile = async (documentId: string) => {
-    const result = await callTool(config, GET_DOCUMENT_PROFILE_TOOL, (tool) =>
-      buildGetDocumentProfileArgs(tool, { documentId }),
-    )
-    mcpCalls += 1
-    return mapToolResultToDocumentProfile(result)
-  }
-
   const containerVerifiedIds = new Set(
     unverified.filter((c) => c.discoveredVia.includes('container_traversal')).map((c) => c.documentId),
   )
   const searchLeadIds = unverified
     .filter((c) => !c.discoveredVia.includes('container_traversal'))
     .map((c) => c.documentId)
+
+  emit(config, {
+    type: 'activity',
+    stage: 'verifying_membership',
+    message:
+      searchLeadIds.length > 0
+        ? `Verifying workspace membership for ${searchLeadIds.length} search ${searchLeadIds.length === 1 ? 'result' : 'results'}…`
+        : 'Verifying workspace membership…',
+  })
+
+  let mcpCalls = 0
+  let checked = 0
+  const getDocumentProfile = async (documentId: string) => {
+    const result = await callTool(config, GET_DOCUMENT_PROFILE_TOOL, (tool) =>
+      buildGetDocumentProfileArgs(tool, { documentId }),
+    )
+    mcpCalls += 1
+    checked += 1
+    const profile = mapToolResultToDocumentProfile(result)
+    emit(config, {
+      type: 'activity',
+      stage: 'verifying_membership',
+      message: `Checked ${checked} of ${searchLeadIds.length}: ${profile?.name ?? documentId}`,
+    })
+    return profile
+  }
 
   const result = await verifyWorkspaceMembership(
     { getDocumentProfile },

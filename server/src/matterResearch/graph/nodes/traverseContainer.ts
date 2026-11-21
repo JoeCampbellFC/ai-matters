@@ -42,6 +42,14 @@ export async function traverseContainer(state: ResearchState, config: NodeConfig
     if (!next || visitedContainers.has(next.containerId)) continue
     visitedContainers.add(next.containerId)
 
+    if (next.containerType !== 'workspace') {
+      emit(config, {
+        type: 'activity',
+        stage: 'traversing_workspace',
+        message: `Scanning ${next.containerType}: ${next.containerId}…`,
+      })
+    }
+
     let cursor: string | undefined
     do {
       const result = await callTool(config, GET_CONTAINER_CHILDREN_TOOL, (tool) =>
@@ -63,6 +71,17 @@ export async function traverseContainer(state: ResearchState, config: NodeConfig
             discoveredVia: ['container_traversal'],
             status: 'candidate',
           }
+          // Emitted as each document is found (not batched at the end) so
+          // progress during a long traversal is visible incrementally.
+          emit(config, {
+            type: 'document_discovered',
+            document: {
+              documentId: child.id,
+              name: child.name,
+              status: 'candidate',
+              discoveredVia: ['container_traversal'],
+            },
+          })
         } else if ((child.type === 'folder' || child.type === 'tab') && next.depth < MAX_DEPTH) {
           if (child.type === 'folder') folderCount += 1
           queue.push({ containerId: child.id, containerType: child.type, depth: next.depth + 1 })
@@ -71,18 +90,6 @@ export async function traverseContainer(state: ResearchState, config: NodeConfig
 
       cursor = nextCursor
     } while (cursor && Object.keys(candidates).length < MAX_ITEMS && state.budget.mcpCalls + mcpCalls < limits.maxMcpCalls)
-  }
-
-  for (const candidate of Object.values(candidates)) {
-    emit(config, {
-      type: 'document_discovered',
-      document: {
-        documentId: candidate.documentId,
-        name: candidate.name,
-        status: 'candidate',
-        discoveredVia: candidate.discoveredVia,
-      },
-    })
   }
 
   const count = Object.keys(candidates).length

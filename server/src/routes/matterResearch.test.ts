@@ -45,6 +45,7 @@ function fakeRun(overrides: Partial<Record<string, unknown>> = {}) {
     status: 'running',
     stage: 'initializing',
     documents: new Map(),
+    searchQueries: new Map(),
     coverage: undefined,
     result: undefined,
     error: undefined,

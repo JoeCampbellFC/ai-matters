@@ -97,6 +97,9 @@ export async function planSearches(state: ResearchState, config: NodeConfig): Pr
   const model = getAzureChatModel().withStructuredOutput(SearchPlanSchema)
   const response = await model.invoke(prompt, { signal: config.signal })
 
+  for (const plan of response.searches) {
+    emit(config, { type: 'search_planned', query: plan.query, rationale: plan.rationale, iteration })
+  }
   emit(config, {
     type: 'activity',
     stage: 'planning_searches',

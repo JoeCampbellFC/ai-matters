@@ -12,11 +12,12 @@ import { GenerateSummaryButton } from './GenerateSummaryButton'
 import { MarkdownViewer } from './MarkdownViewer'
 import { ResearchActivityFeed } from './ResearchActivityFeed'
 import { ResearchDocumentTable } from './ResearchDocumentTable'
+import { ResearchQueryList } from './ResearchQueryList'
 import { ResearchSkillCard } from './ResearchSkillCard'
 import { ResearchStageTimeline } from './ResearchStageTimeline'
 
 export function MatterKnowledgePanel({ workspaceId }: { workspaceId: string }) {
-  const { runId, status, stage, documents, activity, coverage, skill, error, start, cancel } =
+  const { runId, status, stage, documents, searchQueries, activity, coverage, skill, error, start, cancel } =
     useMatterResearch(workspaceId)
   const isMobile = useIsMobile()
   const [markdown, setMarkdown] = useState<string | undefined>()
@@ -53,6 +54,17 @@ export function MatterKnowledgePanel({ workspaceId }: { workspaceId: string }) {
           <ResearchActivityFeed items={activity} />
         </CardContent>
       </Card>
+      {searchQueries.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Search queries</CardTitle>
+            <CardDescription>What the agent is searching for, and what it found.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResearchQueryList queries={searchQueries} />
+          </CardContent>
+        </Card>
+      )}
       {coverage && (
         <Card>
           <CardHeader>

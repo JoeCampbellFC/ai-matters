@@ -9,6 +9,7 @@ import type {
   ResearchRunStatus,
   ResearchStage,
   RunSnapshot,
+  SearchQueryItem,
   SelectedSkill,
 } from '@/types/research'
 
@@ -17,6 +18,7 @@ interface MatterResearchState {
   status: ResearchRunStatus | 'idle'
   stage?: ResearchStage
   documents: Record<string, ResearchDocument>
+  searchQueries: Record<string, SearchQueryItem>
   activity: ResearchActivityItem[]
   coverage?: CoverageAssessment
   skill?: SelectedSkill
@@ -32,7 +34,7 @@ type Action =
 /** Caps the rendered activity feed so a long run doesn't grow this list unbounded. */
 const MAX_ACTIVITY_ITEMS = 300
 
-const INITIAL_STATE: MatterResearchState = { status: 'idle', documents: {}, activity: [] }
+const INITIAL_STATE: MatterResearchState = { status: 'idle', documents: {}, searchQueries: {}, activity: [] }
 
 function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterResearchState {
   switch (event.type) {
@@ -45,6 +47,30 @@ function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterRes
       }
     case 'stage_changed':
       return { ...state, stage: event.stage }
+    case 'search_planned':
+      return {
+        ...state,
+        searchQueries: {
+          ...state.searchQueries,
+          [event.query]: { query: event.query, rationale: event.rationale, iteration: event.iteration, status: 'planned' },
+        },
+      }
+    case 'search_started': {
+      const existing = state.searchQueries[event.query]
+      if (!existing) return state
+      return { ...state, searchQueries: { ...state.searchQueries, [event.query]: { ...existing, status: 'searching' } } }
+    }
+    case 'search_completed': {
+      const existing = state.searchQueries[event.query]
+      if (!existing) return state
+      return {
+        ...state,
+        searchQueries: {
+          ...state.searchQueries,
+          [event.query]: { ...existing, status: 'completed', resultCount: event.resultCount },
+        },
+      }
+    }
     case 'activity': {
       const item: ResearchActivityItem = { seq: event.seq, ts: event.ts, stage: event.stage, message: event.message }
       return { ...state, activity: [...state.activity, item].slice(-MAX_ACTIVITY_ITEMS) }
@@ -98,6 +124,7 @@ function reducer(state: MatterResearchState, action: Action): MatterResearchStat
         status: action.snapshot.status,
         stage: action.snapshot.stage,
         documents: Object.fromEntries(action.snapshot.documents.map((doc) => [doc.documentId, doc])),
+        searchQueries: Object.fromEntries(action.snapshot.searchQueries.map((q) => [q.query, q])),
         coverage: action.snapshot.coverage,
         skill: action.snapshot.skill,
         error: action.snapshot.error,
@@ -182,6 +209,7 @@ export function useMatterResearch(workspaceId: string) {
     status: state.status,
     stage: state.stage,
     documents: Object.values(state.documents),
+    searchQueries: Object.values(state.searchQueries),
     activity: state.activity,
     coverage: state.coverage,
     skill: state.skill,

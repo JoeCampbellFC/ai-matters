@@ -15,6 +15,7 @@ import type {
   ResearchEvent,
   ResearchRunStatus,
   ResearchStage,
+  SearchQueryItem,
   SelectedSkill,
 } from './types.js'
 
@@ -40,6 +41,7 @@ export interface ResearchRunRecord {
   subscribers: Set<(event: ResearchEvent) => void>
   /** Live projections kept in sync as events are pushed, so a snapshot poll never has to re-scan the full event log. */
   documents: Map<string, RunDocumentSnapshot>
+  searchQueries: Map<string, SearchQueryItem>
   coverage?: CoverageAssessment
   skill?: SelectedSkill
   result?: { markdown: string; citationRegistry: CitationRegistryEntry[] }
@@ -72,6 +74,19 @@ function applyProjection(run: ResearchRunRecord, event: ResearchEvent): void {
     run.coverage = { coveredTopics: event.coveredTopics, gaps: event.gaps }
   } else if (event.type === 'skill_selected') {
     run.skill = { name: event.skillName, description: event.description, rationale: event.rationale }
+  } else if (event.type === 'search_planned') {
+    run.searchQueries.set(event.query, {
+      query: event.query,
+      rationale: event.rationale,
+      iteration: event.iteration,
+      status: 'planned',
+    })
+  } else if (event.type === 'search_started') {
+    const existing = run.searchQueries.get(event.query)
+    if (existing) run.searchQueries.set(event.query, { ...existing, status: 'searching' })
+  } else if (event.type === 'search_completed') {
+    const existing = run.searchQueries.get(event.query)
+    if (existing) run.searchQueries.set(event.query, { ...existing, status: 'completed', resultCount: event.resultCount })
   }
 }
 
@@ -165,6 +180,7 @@ export function startResearchRun(input: {
     abortController,
     subscribers: new Set(),
     documents: new Map(),
+    searchQueries: new Map(),
     done: Promise.resolve(),
   }
   runsByRunId.set(runId, run)

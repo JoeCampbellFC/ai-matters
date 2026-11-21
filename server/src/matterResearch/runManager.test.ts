@@ -75,6 +75,32 @@ describe('startResearchRun / lifecycle', () => {
     expect(replayedAfterLast).toEqual([])
   })
 
+  it('projects the search_planned/started/completed lifecycle onto run.searchQueries', async () => {
+    streamImpl.mockImplementation(
+      immediateStream([
+        ['custom', { type: 'search_planned', query: 'share purchase agreement', rationale: 'core deal document', iteration: 0 }],
+        ['custom', { type: 'search_started', query: 'share purchase agreement' }],
+        ['custom', { type: 'search_completed', query: 'share purchase agreement', resultCount: 3 }],
+      ]),
+    )
+
+    const run = startResearchRun({
+      sessionId: 'session-search',
+      workspaceId: 'WS-search',
+      client: FAKE_CLIENT,
+      tools: FAKE_TOOLS,
+    })
+    await run.done
+
+    expect(run.searchQueries.get('share purchase agreement')).toEqual({
+      query: 'share purchase agreement',
+      rationale: 'core deal document',
+      iteration: 0,
+      status: 'completed',
+      resultCount: 3,
+    })
+  })
+
   it('classifies a cancelled run as cancelled, not failed', async () => {
     streamImpl.mockImplementation(hangingStream())
 

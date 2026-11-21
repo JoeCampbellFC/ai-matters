@@ -48,6 +48,16 @@ export interface CitationRegistryEntry {
   link?: string
 }
 
+export type SearchQueryStatus = 'planned' | 'searching' | 'completed'
+
+export interface SearchQueryItem {
+  query: string
+  rationale: string
+  iteration: number
+  status: SearchQueryStatus
+  resultCount?: number
+}
+
 /** The research playbook selected for this run -- see server/src/matterResearch/skills.ts. */
 export interface SelectedSkill {
   name: string
@@ -60,6 +70,9 @@ export type ResearchEventType =
   | 'skill_selected'
   | 'stage_changed'
   | 'activity'
+  | 'search_planned'
+  | 'search_started'
+  | 'search_completed'
   | 'document_discovered'
   | 'document_status_changed'
   | 'coverage_assessed'
@@ -85,6 +98,9 @@ export type ResearchEvent =
       message: string
       detail?: Record<string, unknown>
     })
+  | (ResearchEventBase & { type: 'search_planned'; query: string; rationale: string; iteration: number })
+  | (ResearchEventBase & { type: 'search_started'; query: string })
+  | (ResearchEventBase & { type: 'search_completed'; query: string; resultCount: number })
   | (ResearchEventBase & {
       type: 'document_discovered'
       document: {
@@ -116,6 +132,7 @@ export interface RunSnapshot {
   status: ResearchRunStatus
   stage: ResearchStage
   documents: ResearchDocument[]
+  searchQueries: SearchQueryItem[]
   coverage?: CoverageAssessment
   skill?: SelectedSkill
   error?: { code: string; message: string }

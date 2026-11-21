@@ -88,6 +88,7 @@ matterResearchRouter.get('/research/:runId', (req, res, next) => {
       status: run.status,
       stage: run.stage,
       documents: Array.from(run.documents.values()),
+      searchQueries: Array.from(run.searchQueries.values()),
       coverage: run.coverage,
       skill: run.skill,
       error: run.error,

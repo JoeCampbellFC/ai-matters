@@ -28,12 +28,16 @@ export async function runGlobalSearches(state: ResearchState, config: NodeConfig
   for (const plan of plansThisIteration) {
     if (state.budget.mcpCalls + mcpCalls >= limits.maxMcpCalls) break
 
+    emit(config, { type: 'search_started', query: plan.query })
+
     const result = await callTool(config, SEARCH_TOOL, (tool) =>
       buildGlobalSearchArgs(tool, { query: plan.query, limit: MAX_RESULTS_PER_QUERY }),
     )
     mcpCalls += 1
     const { hits } = mapToolResultToSearchHits(result)
     totalHits += hits.length
+
+    emit(config, { type: 'search_completed', query: plan.query, resultCount: hits.length })
 
     for (const hit of hits) {
       if (!hit.documentId) continue
