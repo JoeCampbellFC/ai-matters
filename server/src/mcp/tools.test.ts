@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
-import { buildRecentWorkspacesArgs, buildSearchWorkspacesArgs } from './tools.js'
+import {
+  buildFetchArgs,
+  buildGetContainerChildrenArgs,
+  buildGetDocumentProfileArgs,
+  buildGetWorkspaceProfileArgs,
+  buildGlobalSearchArgs,
+  buildRecentWorkspacesArgs,
+  buildSearchFoldersArgs,
+  buildSearchWorkspacesArgs,
+} from './tools.js'
 import { UnsupportedSearchInputError } from './errors.js'
 
 function tool(overrides: Partial<Tool>): Tool {
@@ -98,5 +107,95 @@ describe('buildRecentWorkspacesArgs', () => {
       inputSchema: { type: 'object', properties: { activity_type: { type: 'string' } }, required: ['activity_type'] },
     })
     expect(() => buildRecentWorkspacesArgs(t, {})).toThrow(UnsupportedSearchInputError)
+  })
+})
+
+describe('buildGetWorkspaceProfileArgs', () => {
+  it('maps the workspace id onto the discovered parameter', () => {
+    const t = tool({
+      name: 'get_workspace_profile',
+      inputSchema: { type: 'object', properties: { workspace_id: { type: 'string' } } },
+    })
+    expect(buildGetWorkspaceProfileArgs(t, { workspaceId: 'WS-1' })).toEqual({ workspace_id: 'WS-1' })
+  })
+})
+
+describe('buildGetContainerChildrenArgs', () => {
+  it('maps container id and type onto the discovered flat parameters', () => {
+    const t = tool({
+      name: 'get_container_children',
+      inputSchema: {
+        type: 'object',
+        properties: { container_id: { type: 'string' }, container_type: { type: 'string' } },
+      },
+    })
+    expect(buildGetContainerChildrenArgs(t, { containerId: 'WS-1', containerType: 'workspace' })).toEqual({
+      container_id: 'WS-1',
+      container_type: 'workspace',
+    })
+  })
+
+  it('throws when the schema has no recognizable container_type parameter', () => {
+    const t = tool({
+      name: 'get_container_children',
+      inputSchema: { type: 'object', properties: { container_id: { type: 'string' } } },
+    })
+    expect(() => buildGetContainerChildrenArgs(t, { containerId: 'WS-1', containerType: 'workspace' })).toThrow(
+      UnsupportedSearchInputError,
+    )
+  })
+
+  it('includes cursor and a capped limit when the schema supports pagination', () => {
+    const t = tool({
+      name: 'get_container_children',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          container_id: { type: 'string' },
+          container_type: { type: 'string' },
+          cursor: { type: 'string' },
+          limit: { type: 'number' },
+        },
+      },
+    })
+    expect(
+      buildGetContainerChildrenArgs(t, { containerId: 'FOLDER-1', containerType: 'folder', cursor: 'abc', limit: 500 }),
+    ).toEqual({ container_id: 'FOLDER-1', container_type: 'folder', cursor: 'abc', limit: 100 })
+  })
+})
+
+describe('buildGlobalSearchArgs', () => {
+  it('maps the query onto the discovered parameter', () => {
+    const t = tool({ name: 'search', inputSchema: { type: 'object', properties: { query: { type: 'string' } } } })
+    expect(buildGlobalSearchArgs(t, { query: 'engagement letter' })).toEqual({ query: 'engagement letter' })
+  })
+
+  it('throws when the schema has no recognizable query parameter', () => {
+    const t = tool({ name: 'search', inputSchema: { type: 'object', properties: {} } })
+    expect(() => buildGlobalSearchArgs(t, { query: 'x' })).toThrow(UnsupportedSearchInputError)
+  })
+})
+
+describe('buildSearchFoldersArgs', () => {
+  it('maps workspace scope and query onto the discovered flat parameters', () => {
+    const t = tool({
+      name: 'search_folders',
+      inputSchema: { type: 'object', properties: { workspace_id: { type: 'string' }, name: { type: 'string' } } },
+    })
+    expect(buildSearchFoldersArgs(t, { workspaceId: 'WS-1', query: 'Correspondence' })).toEqual({
+      workspace_id: 'WS-1',
+      name: 'Correspondence',
+    })
+  })
+})
+
+describe('buildGetDocumentProfileArgs / buildFetchArgs', () => {
+  it('map the document id onto the discovered parameter', () => {
+    const t = tool({
+      name: 'get_document_profile',
+      inputSchema: { type: 'object', properties: { document_id: { type: 'string' } } },
+    })
+    expect(buildGetDocumentProfileArgs(t, { documentId: 'DOC-1' })).toEqual({ document_id: 'DOC-1' })
+    expect(buildFetchArgs(t, { documentId: 'DOC-1' })).toEqual({ document_id: 'DOC-1' })
   })
 })

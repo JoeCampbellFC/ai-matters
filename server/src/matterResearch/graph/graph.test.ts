@@ -38,6 +38,7 @@ const TOOLS: Tool[] = [
   tool('get_workspace_profile', { workspace_id: { type: 'string' } }),
   tool('get_container_children', {
     container_id: { type: 'string' },
+    container_type: { type: 'string' },
     cursor: { type: 'string' },
     limit: { type: 'number' },
   }),

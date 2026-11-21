@@ -19,6 +19,7 @@ describe('mapToolResultToContainerChildren', () => {
         { id: 'DOC-1', name: 'Engagement Letter.pdf', type: 'document' },
         { id: 'FOLDER-1', name: 'Correspondence', type: 'Folder' },
         { id: 'WS-2', name: 'Related Matter', type: 'workspace' },
+        { id: 'TAB-1', name: 'Documents', type: 'tab' },
         { id: 'EMAIL-1', name: 'Re: Closing', type: 'email' },
         { id: 'SHORTCUT-1', name: 'Shortcut to X', type: 'shortcut' },
         { id: 'UNKNOWN-1', name: 'Mystery item', type: 'something_else' },
@@ -27,8 +28,16 @@ describe('mapToolResultToContainerChildren', () => {
     })
 
     const { children } = mapToolResultToContainerChildren(result)
-    expect(children).toHaveLength(6)
-    expect(children.map((c) => c.type)).toEqual(['document', 'folder', 'workspace', 'email', 'shortcut', 'unknown'])
+    expect(children).toHaveLength(7)
+    expect(children.map((c) => c.type)).toEqual([
+      'document',
+      'folder',
+      'workspace',
+      'tab',
+      'email',
+      'shortcut',
+      'unknown',
+    ])
   })
 
   it('extracts a pagination cursor when present', () => {

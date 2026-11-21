@@ -9,13 +9,15 @@ const MAX_ITEMS = 500
 const MAX_DEPTH = 4
 const PAGE_SIZE = 100
 
+type ContainerLevel = 'workspace' | 'tab' | 'folder'
+
 /**
  * Recursively walks the workspace's own container tree via
  * get_container_children. Every document found this way is a workspace
  * member by construction -- no later verification call is needed for it.
- * Folder children are recursed into (bounded by depth/count); workspace and
- * shortcut children are intentionally not traversed into, since they belong
- * to (or point outside) a different container.
+ * Tab and folder children are recursed into (bounded by depth/count);
+ * workspace and shortcut children are intentionally not traversed into,
+ * since they belong to (or point outside) a different container.
  */
 export async function traverseContainer(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
   if (state.containerTraversalComplete || !state.containerId) {
@@ -29,7 +31,9 @@ export async function traverseContainer(state: ResearchState, config: NodeConfig
   let mcpCalls = 0
   let folderCount = 0
 
-  const queue: Array<{ containerId: string; depth: number }> = [{ containerId: state.containerId, depth: 0 }]
+  const queue: Array<{ containerId: string; containerType: ContainerLevel; depth: number }> = [
+    { containerId: state.containerId, containerType: 'workspace', depth: 0 },
+  ]
   const visitedContainers = new Set<string>()
 
   while (queue.length > 0 && Object.keys(candidates).length < MAX_ITEMS) {
@@ -41,7 +45,12 @@ export async function traverseContainer(state: ResearchState, config: NodeConfig
     let cursor: string | undefined
     do {
       const result = await callTool(config, GET_CONTAINER_CHILDREN_TOOL, (tool) =>
-        buildGetContainerChildrenArgs(tool, { containerId: next.containerId, cursor, limit: PAGE_SIZE }),
+        buildGetContainerChildrenArgs(tool, {
+          containerId: next.containerId,
+          containerType: next.containerType,
+          cursor,
+          limit: PAGE_SIZE,
+        }),
       )
       mcpCalls += 1
       const { children, nextCursor } = mapToolResultToContainerChildren(result)
@@ -54,9 +63,9 @@ export async function traverseContainer(state: ResearchState, config: NodeConfig
             discoveredVia: ['container_traversal'],
             status: 'candidate',
           }
-        } else if (child.type === 'folder' && next.depth < MAX_DEPTH) {
-          folderCount += 1
-          queue.push({ containerId: child.id, depth: next.depth + 1 })
+        } else if ((child.type === 'folder' || child.type === 'tab') && next.depth < MAX_DEPTH) {
+          if (child.type === 'folder') folderCount += 1
+          queue.push({ containerId: child.id, containerType: child.type, depth: next.depth + 1 })
         }
       }
 

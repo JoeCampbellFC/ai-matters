@@ -140,6 +140,7 @@ export function buildRecentWorkspacesArgs(tool: Tool, input: { libraryId?: strin
 
 const WORKSPACE_ID_CANDIDATES = ['workspace_id', 'workspaceId', 'id']
 const CONTAINER_ID_CANDIDATES = ['container_id', 'containerId', 'workspace_id', 'folder_id']
+const CONTAINER_TYPE_CANDIDATES = ['container_type', 'containerType']
 const DOCUMENT_ID_CANDIDATES = ['document_id', 'documentId', 'id', 'doc_id']
 const CURSOR_PARAM_CANDIDATES = ['cursor', 'page_cursor', 'next_cursor']
 const LIMIT_PARAM_CANDIDATES = ['limit', 'page_size', 'pageSize']
@@ -185,7 +186,7 @@ export function buildFetchArgs(tool: Tool, input: { documentId: string }): Recor
 
 export function buildGetContainerChildrenArgs(
   tool: Tool,
-  input: { containerId: string; cursor?: string; limit?: number },
+  input: { containerId: string; containerType: 'workspace' | 'tab' | 'folder'; cursor?: string; limit?: number },
 ): Record<string, unknown> {
   const resolved = resolveParamKey(tool, CONTAINER_ID_CANDIDATES)
   if (!resolved) {
@@ -194,15 +195,19 @@ export function buildGetContainerChildrenArgs(
     )
   }
   const properties = schemaProperties(tool)
-  if (resolved.parent) {
-    const scopeProperties = properties[resolved.parent]?.properties ?? {}
-    const nested: Record<string, unknown> = { [resolved.key]: input.containerId }
-    addPaginationFields(nested, scopeProperties, input)
-    return { [resolved.parent]: nested }
+  const scopeProperties = resolved.parent ? (properties[resolved.parent]?.properties ?? {}) : properties
+  const target: Record<string, unknown> = { [resolved.key]: input.containerId }
+
+  const typeKey = CONTAINER_TYPE_CANDIDATES.find((candidate) => candidate in scopeProperties)
+  if (!typeKey) {
+    throw new UnsupportedSearchInputError(
+      `The discovered "${tool.name}" schema does not expose a recognizable container_type parameter (looked for: ${CONTAINER_TYPE_CANDIDATES.join(', ')}).`,
+    )
   }
-  const args: Record<string, unknown> = { [resolved.key]: input.containerId }
-  addPaginationFields(args, properties, input)
-  return args
+  target[typeKey] = input.containerType
+
+  addPaginationFields(target, scopeProperties, input)
+  return resolved.parent ? { [resolved.parent]: target } : target
 }
 
 /**

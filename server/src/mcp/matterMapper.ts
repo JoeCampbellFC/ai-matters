@@ -2,7 +2,10 @@ import { z } from 'zod'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { extractToolPayload } from './workspaceMapper.js'
 
-export type ContainerItemType = 'document' | 'folder' | 'workspace' | 'email' | 'shortcut' | 'unknown'
+export type ContainerItemType = 'document' | 'folder' | 'workspace' | 'tab' | 'email' | 'shortcut' | 'unknown'
+
+/** The container_type values get_container_children actually accepts, per the live MCP schema. */
+export type ContainerType = 'workspace' | 'tab' | 'folder'
 
 export interface ContainerChild {
   id: string
@@ -69,6 +72,7 @@ function normalizeItemType(value: string | undefined): ContainerItemType {
     case 'document':
     case 'folder':
     case 'workspace':
+    case 'tab':
     case 'email':
     case 'shortcut':
       return value.toLowerCase() as ContainerItemType
