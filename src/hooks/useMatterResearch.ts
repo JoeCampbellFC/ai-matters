@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react'
+import { ApiError } from '@/services/api'
 import { cancelResearch, fetchRunSnapshot, startResearch, subscribeToResearchEvents } from '@/services/matterResearchApi'
 import type {
   CoverageAssessment,
@@ -123,20 +124,33 @@ export function useMatterResearch(workspaceId: string) {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
   const unsubscribeRef = useRef<(() => void) | null>(null)
 
-  const attach = useCallback((runId: string) => {
-    unsubscribeRef.current?.()
-    dispatch({ type: 'attached', runId })
+  const attach = useCallback(
+    (runId: string) => {
+      unsubscribeRef.current?.()
+      dispatch({ type: 'attached', runId })
 
-    fetchRunSnapshot(runId)
-      .then((snapshot) => dispatch({ type: 'snapshot', snapshot }))
-      .catch(() => {
-        // Best-effort catch-up only; live events still arrive via the SSE subscription below.
+      fetchRunSnapshot(runId)
+        .then((snapshot) => dispatch({ type: 'snapshot', snapshot }))
+        .catch((error: unknown) => {
+          if (error instanceof ApiError && error.status === 404) {
+            // The run no longer exists server-side (e.g. a dev-server restart wiped in-memory run
+            // state, or it aged out past its retention window) -- forget it rather than leaving the
+            // UI stuck showing "running" forever with nothing left to correct it.
+            unsubscribeRef.current?.()
+            unsubscribeRef.current = null
+            sessionStorage.removeItem(storageKey(workspaceId))
+            dispatch({ type: 'reset' })
+            return
+          }
+          // Other errors: best-effort catch-up only; live events still arrive via the SSE subscription below.
+        })
+
+      unsubscribeRef.current = subscribeToResearchEvents(runId, {
+        onEvent: (event) => dispatch({ type: 'event', event }),
       })
-
-    unsubscribeRef.current = subscribeToResearchEvents(runId, {
-      onEvent: (event) => dispatch({ type: 'event', event }),
-    })
-  }, [])
+    },
+    [workspaceId],
+  )
 
   useEffect(() => {
     const storedRunId = sessionStorage.getItem(storageKey(workspaceId))
