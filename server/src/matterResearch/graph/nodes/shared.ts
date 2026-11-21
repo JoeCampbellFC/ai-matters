@@ -4,7 +4,7 @@ import { Annotation, type LangGraphRunnableConfig } from '@langchain/langgraph'
 import { findTool } from '../../../mcp/tools.js'
 import { McpToolError } from '../../../mcp/errors.js'
 import type { BudgetLimits } from '../../budget.js'
-import type { EmittedResearchEvent } from '../../types.js'
+import type { EmittedResearchEvent, ResearchStage } from '../../types.js'
 
 /**
  * Non-serializable, request-scoped context threaded into every node via
@@ -38,6 +38,17 @@ export type NodeConfig = LangGraphRunnableConfig<NodeContext>
  */
 export function emit(config: NodeConfig, event: EmittedResearchEvent): void {
   config.writer?.(event)
+}
+
+/**
+ * Declares "this stage has started" as the very first thing a node does.
+ * Each node self-reports rather than runManager.ts inferring it from
+ * `updates`-mode chunks after the fact (which only fires once a node
+ * *finishes*, making the reported "current" stage always one node behind
+ * and the resulting duration measurements wrong).
+ */
+export function emitStage(config: NodeConfig, state: { budget: { iterationCount: number } }, stage: ResearchStage): void {
+  emit(config, { type: 'stage_changed', stage, iteration: state.budget.iterationCount })
 }
 
 export function requireTool(tools: Tool[], name: string): Tool {

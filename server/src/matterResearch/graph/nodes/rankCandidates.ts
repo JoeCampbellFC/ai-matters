@@ -4,7 +4,7 @@ import { incrementBudget } from '../../budget.js'
 import { getSkill } from '../../skills.js'
 import type { CandidateDocument } from '../../types.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { emit, type NodeConfig } from './shared.js'
+import { emit, emitStage, type NodeConfig } from './shared.js'
 
 const RankingSchema = z.object({
   rankings: z.array(
@@ -22,6 +22,8 @@ const RankingSchema = z.object({
  * Relevance scores are heuristic, not calibrated probabilities.
  */
 export async function rankCandidates(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'ranking_candidates')
+
   const verified = Object.values(state.candidates).filter(
     (c) => c.verifiedBy && c.status !== 'excluded' && c.relevanceScore === undefined,
   )

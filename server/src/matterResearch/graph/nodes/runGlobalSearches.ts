@@ -3,7 +3,7 @@ import { mapToolResultToSearchHits } from '../../../mcp/matterMapper.js'
 import { incrementBudget } from '../../budget.js'
 import type { CandidateDocument, DiscoverySource } from '../../types.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { callTool, emit, requireContext, type NodeConfig } from './shared.js'
+import { callTool, emit, emitStage, requireContext, type NodeConfig } from './shared.js'
 
 const MAX_RESULTS_PER_QUERY = 25
 
@@ -13,6 +13,8 @@ const MAX_RESULTS_PER_QUERY = 25
  * must pass verifyMembership before anything can be fetched.
  */
 export async function runGlobalSearches(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'searching')
+
   const plansThisIteration = state.searchPlans.filter((plan) => plan.iteration === state.budget.iterationCount)
   if (plansThisIteration.length === 0) {
     return {}

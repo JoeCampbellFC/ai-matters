@@ -44,6 +44,7 @@ function fakeRun(overrides: Partial<Record<string, unknown>> = {}) {
     workspaceId: 'WS-1',
     status: 'running',
     stage: 'initializing',
+    stageStartedAt: new Date('2026-01-01T00:00:00.000Z'),
     documents: new Map(),
     searchQueries: new Map(),
     coverage: undefined,

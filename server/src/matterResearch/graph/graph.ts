@@ -16,27 +16,6 @@ import { writeMarkdown } from './nodes/writeMarkdown.js'
 import { validateCitationsNode } from './nodes/validateCitations.js'
 import { finalize } from './nodes/finalize.js'
 
-/**
- * Maps a node name to the UI-facing research stage it belongs to. Centralised
- * here (rather than emitted per-node) so stage_changed events are derived
- * consistently from `updates`-mode stream chunks by runManager.ts.
- */
-export const NODE_STAGE_MAP: Record<string, string> = {
-  loadWorkspaceContext: 'initializing',
-  planSearches: 'planning_searches',
-  traverseContainer: 'traversing_workspace',
-  runGlobalSearches: 'searching',
-  verifyMembership: 'verifying_membership',
-  rankCandidates: 'ranking_candidates',
-  selectDocuments: 'selecting_documents',
-  readAndExtract: 'reading_documents',
-  assessCoverage: 'assessing_coverage',
-  buildOutline: 'synthesizing',
-  writeMarkdown: 'synthesizing',
-  validateCitations: 'synthesizing',
-  finalize: 'synthesizing',
-}
-
 export function buildMatterResearchGraph() {
   return new StateGraph(ResearchAnnotation, NodeContextAnnotation)
     .addNode('loadWorkspaceContext', loadWorkspaceContext)

@@ -4,9 +4,11 @@ import { verifyWorkspaceMembership } from '../../membership.js'
 import { incrementBudget } from '../../budget.js'
 import type { CandidateDocument } from '../../types.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { callTool, emit, type NodeConfig } from './shared.js'
+import { callTool, emit, emitStage, type NodeConfig } from './shared.js'
 
 export async function verifyMembership(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'verifying_membership')
+
   const candidateList = Object.values(state.candidates)
   const unverified = candidateList.filter((c) => !c.verifiedBy && c.status !== 'excluded')
   if (unverified.length === 0) {

@@ -6,7 +6,6 @@ const { streamImpl } = vi.hoisted(() => ({ streamImpl: vi.fn() }))
 
 vi.mock('./graph/graph.js', () => ({
   buildMatterResearchGraph: () => ({ stream: streamImpl }),
-  NODE_STAGE_MAP: { someNode: 'initializing' },
 }))
 
 const {
@@ -165,6 +164,40 @@ describe('startResearchRun / lifecycle', () => {
     await run.done
     expect(() => assertRunOwnedBySession(run, 'other-session')).toThrow(RunNotFoundError)
     expect(() => assertRunOwnedBySession(run, 'owner-session')).not.toThrow()
+  })
+})
+
+describe('stage tracking', () => {
+  it('advances run.stage and only logs/resets on a genuine transition, not a same-stage repeat', async () => {
+    streamImpl.mockImplementation(async function* () {
+      yield ['custom', { type: 'stage_changed', stage: 'initializing', iteration: 0 }]
+      yield ['custom', { type: 'stage_changed', stage: 'planning_searches', iteration: 0 }]
+      yield ['custom', { type: 'stage_changed', stage: 'synthesizing', iteration: 0 }]
+      // A short real delay so this and the next 'synthesizing' event get distinct
+      // timestamps -- otherwise both could land in the same millisecond and the
+      // "did it reset the clock" assertion below would be meaningless either way.
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      // Several synthesis nodes report the same stage back-to-back; this should not look like two transitions.
+      yield ['custom', { type: 'stage_changed', stage: 'synthesizing', iteration: 0 }]
+    })
+
+    const run = startResearchRun({
+      sessionId: 'session-stage',
+      workspaceId: 'WS-stage',
+      client: FAKE_CLIENT,
+      tools: FAKE_TOOLS,
+    })
+    await run.done
+
+    expect(run.stage).toBe('synthesizing')
+    const stageEvents = run.events.filter((e) => e.type === 'stage_changed')
+    expect(stageEvents).toHaveLength(4)
+
+    // The repeated 'synthesizing' event (the 3rd stage_changed, after -> planning_searches and
+    // -> synthesizing) must not reset the clock: stageStartedAt should still match when
+    // 'synthesizing' first began, not the later repeat.
+    expect(run.stageStartedAt.toISOString()).toBe(stageEvents[2]!.ts)
+    expect(run.stageStartedAt.toISOString()).not.toBe(stageEvents[3]!.ts)
   })
 })
 

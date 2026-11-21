@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { getAzureChatModel } from '../../../llm/azureOpenAI.js'
 import { incrementBudget } from '../../budget.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { emit, type NodeConfig } from './shared.js'
+import { emit, emitStage, type NodeConfig } from './shared.js'
 
 const COVERAGE_TOPICS = [
   'matter overview and purpose',
@@ -33,6 +33,7 @@ const CoverageSchema = z.object({
  * something to assume or fill in with invented information.
  */
 export async function assessCoverage(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'assessing_coverage')
   emit(config, { type: 'activity', stage: 'assessing_coverage', message: 'Checking research coverage…' })
 
   const evidenceSummary = state.evidence

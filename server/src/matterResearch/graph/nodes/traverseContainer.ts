@@ -3,7 +3,7 @@ import { mapToolResultToContainerChildren } from '../../../mcp/matterMapper.js'
 import { incrementBudget } from '../../budget.js'
 import type { CandidateDocument } from '../../types.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { callTool, emit, requireContext, type NodeConfig } from './shared.js'
+import { callTool, emit, emitStage, requireContext, type NodeConfig } from './shared.js'
 
 const MAX_ITEMS = 500
 const MAX_DEPTH = 4
@@ -20,6 +20,8 @@ type ContainerLevel = 'workspace' | 'tab' | 'folder'
  * since they belong to (or point outside) a different container.
  */
 export async function traverseContainer(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'traversing_workspace')
+
   if (state.containerTraversalComplete || !state.containerId) {
     return { containerTraversalComplete: true }
   }

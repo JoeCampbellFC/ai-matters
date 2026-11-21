@@ -15,7 +15,7 @@ description: Default research strategy for a matter whose type is unclear or doe
 - "engagement letter"
 - "matter opening"
 - "status report"
-- "summary"
+- "agreement"
 
 ## What "complete" coverage looks like
 

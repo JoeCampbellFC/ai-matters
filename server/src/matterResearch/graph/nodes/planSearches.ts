@@ -4,7 +4,7 @@ import { incrementBudget } from '../../budget.js'
 import { getFallbackSkill, getSkill, listSkillSummaries } from '../../skills.js'
 import type { SelectedSkill } from '../../types.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { emit, type NodeConfig } from './shared.js'
+import { emit, emitStage, type NodeConfig } from './shared.js'
 
 const SearchPlanSchema = z.object({
   searches: z
@@ -46,6 +46,7 @@ async function selectSkill(state: ResearchState, config: NodeConfig): Promise<Se
 }
 
 export async function planSearches(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'planning_searches')
   emit(config, { type: 'activity', stage: 'planning_searches', message: 'Planning document searches…' })
 
   let skillLlmCalls = 0

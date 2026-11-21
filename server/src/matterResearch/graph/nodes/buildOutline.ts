@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { getAzureChatModel } from '../../../llm/azureOpenAI.js'
 import { incrementBudget } from '../../budget.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { emit, type NodeConfig } from './shared.js'
+import { emit, emitStage, type NodeConfig } from './shared.js'
 
 /**
  * The narrative sections of the Matter Knowledge File. Sections 13
@@ -78,6 +78,7 @@ const OutlineSchema = z.object({
 })
 
 export async function buildOutline(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'synthesizing')
   emit(config, { type: 'activity', stage: 'synthesizing', message: 'Writing matter summary…' })
 
   const evidenceListing = state.evidence

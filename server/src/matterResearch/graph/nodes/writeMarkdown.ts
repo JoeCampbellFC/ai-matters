@@ -3,7 +3,7 @@ import { buildCitationRegistry } from '../../synthesis.js'
 import { incrementBudget } from '../../budget.js'
 import { getSkill } from '../../skills.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { emit, type NodeConfig } from './shared.js'
+import { emit, emitStage, type NodeConfig } from './shared.js'
 
 /**
  * Writes one LLM call per outline section (never one giant summarisation
@@ -12,6 +12,7 @@ import { emit, type NodeConfig } from './shared.js'
  * by every section so the same document always gets the same marker.
  */
 export async function writeMarkdown(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'synthesizing')
   emit(config, { type: 'activity', stage: 'synthesizing', message: 'Drafting report sections…' })
 
   const reviewedDocs = state.selectedDocumentIds

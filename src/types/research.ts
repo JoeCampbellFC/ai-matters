@@ -131,6 +131,7 @@ export interface RunSnapshot {
   workspaceId: string
   status: ResearchRunStatus
   stage: ResearchStage
+  stageStartedAt: string
   documents: ResearchDocument[]
   searchQueries: SearchQueryItem[]
   coverage?: CoverageAssessment

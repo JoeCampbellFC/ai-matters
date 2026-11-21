@@ -5,7 +5,7 @@ import { config } from '../config.js'
 import { classifyError } from '../httpErrors.js'
 import { budgetLimitsFromConfig } from './budget.js'
 import { RunAlreadyInProgressError, RunNotFoundError } from './errors.js'
-import { buildMatterResearchGraph, NODE_STAGE_MAP } from './graph/graph.js'
+import { buildMatterResearchGraph } from './graph/graph.js'
 import type { ResearchState } from './graph/state.js'
 import type {
   CitationRegistryEntry,
@@ -44,6 +44,8 @@ export interface ResearchRunRecord {
   searchQueries: Map<string, SearchQueryItem>
   coverage?: CoverageAssessment
   skill?: SelectedSkill
+  /** Wall-clock time the current `stage` started, for the per-stage duration debug log and the UI's duration pill. */
+  stageStartedAt: Date
   result?: { markdown: string; citationRegistry: CitationRegistryEntry[] }
   error?: { code: string; message: string }
   /** Resolves once the graph run has fully settled (succeeded/failed/cancelled). */
@@ -59,7 +61,22 @@ function workspaceKey(sessionId: string, workspaceId: string): string {
 }
 
 function applyProjection(run: ResearchRunRecord, event: ResearchEvent): void {
-  if (event.type === 'document_discovered') {
+  if (event.type === 'stage_changed') {
+    // Only a genuine transition resets the clock and logs -- several nodes
+    // (buildOutline/writeMarkdown/validateCitations/finalize) all report
+    // 'synthesizing' back-to-back and should read as one continuous
+    // duration, and the very first event ('initializing', matching the
+    // record's own starting default) correctly confirms rather than resets.
+    if (event.stage !== run.stage) {
+      const now = new Date(event.ts)
+      const elapsedMs = now.getTime() - run.stageStartedAt.getTime()
+      console.log(
+        `[research:${run.runId}] stage "${run.stage}" took ${(elapsedMs / 1000).toFixed(1)}s -> entering "${event.stage}"`,
+      )
+      run.stage = event.stage
+      run.stageStartedAt = now
+    }
+  } else if (event.type === 'document_discovered') {
     run.documents.set(event.document.documentId, { ...event.document })
   } else if (event.type === 'document_status_changed') {
     const existing = run.documents.get(event.documentId)
@@ -165,14 +182,16 @@ export function startResearchRun(input: {
 
   const runId = randomUUID()
   const abortController = new AbortController()
+  const startedAt = new Date()
   const run: ResearchRunRecord = {
     runId,
     sessionId: input.sessionId,
     workspaceId: input.workspaceId,
     status: 'running',
     stage: 'initializing',
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: startedAt,
+    updatedAt: startedAt,
+    stageStartedAt: startedAt,
     events: [],
     // Starts at 1 so afterSeq=0 (the client's "give me everything" sentinel,
     // e.g. no Last-Event-ID yet) still replays the very first event.
@@ -205,7 +224,7 @@ async function runGraph(run: ResearchRunRecord, client: Client, tools: Tool[]): 
     const stream = await graph.stream(
       { runId: run.runId, sessionId: run.sessionId, workspaceId: run.workspaceId },
       {
-        streamMode: ['values', 'updates', 'custom'],
+        streamMode: ['values', 'custom'],
         configurable: { client, tools, limits: budgetLimitsFromConfig() },
         signal: run.abortController.signal,
         recursionLimit: RECURSION_LIMIT,
@@ -217,18 +236,6 @@ async function runGraph(run: ResearchRunRecord, client: Client, tools: Tool[]): 
         latestValues = chunk as ResearchState
       } else if (mode === 'custom') {
         pushEvent(run, chunk as EmittedResearchEvent)
-      } else if (mode === 'updates') {
-        const updateRecord = chunk as Record<string, { budget?: { iterationCount?: number } } | undefined>
-        const nodeName = Object.keys(updateRecord)[0]
-        const stage = NODE_STAGE_MAP[nodeName]
-        if (stage) {
-          run.stage = stage as ResearchStage
-          pushEvent(run, {
-            type: 'stage_changed',
-            stage: run.stage,
-            iteration: updateRecord[nodeName]?.budget?.iterationCount ?? 0,
-          })
-        }
       }
     }
 

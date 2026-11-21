@@ -87,6 +87,7 @@ matterResearchRouter.get('/research/:runId', (req, res, next) => {
       workspaceId: run.workspaceId,
       status: run.status,
       stage: run.stage,
+      stageStartedAt: run.stageStartedAt.toISOString(),
       documents: Array.from(run.documents.values()),
       searchQueries: Array.from(run.searchQueries.values()),
       coverage: run.coverage,

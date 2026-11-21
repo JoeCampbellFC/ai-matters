@@ -2,7 +2,7 @@ import { checkBudget } from '../../budget.js'
 import { renderSourcesSection } from '../../synthesis.js'
 import type { CandidateDocument, CitationRegistryEntry } from '../../types.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { emit, requireContext, type NodeConfig } from './shared.js'
+import { emit, emitStage, requireContext, type NodeConfig } from './shared.js'
 
 function renderDocumentRegister(
   citationRegistry: CitationRegistryEntry[],
@@ -62,6 +62,8 @@ function renderResearchCoverage(state: ResearchState): string {
  * most want to fact-check.
  */
 export async function finalize(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'synthesizing')
+
   const { limits } = requireContext(config)
   const budget = { ...state.budget, exceeded: checkBudget(state.budget, limits) }
   state = { ...state, budget }

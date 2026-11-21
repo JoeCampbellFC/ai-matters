@@ -2,7 +2,7 @@ import { GET_WORKSPACE_PROFILE_TOOL, buildGetWorkspaceProfileArgs } from '../../
 import { extractToolPayload, normalizeWorkspace } from '../../../mcp/workspaceMapper.js'
 import { incrementBudget } from '../../budget.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { callTool, emit, type NodeConfig } from './shared.js'
+import { callTool, emit, emitStage, type NodeConfig } from './shared.js'
 
 /** get_workspace_profile may return the profile bare or wrapped under a conventional key. */
 function unwrapProfilePayload(payload: unknown): unknown {
@@ -15,6 +15,7 @@ function unwrapProfilePayload(payload: unknown): unknown {
 }
 
 export async function loadWorkspaceContext(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'initializing')
   emit(config, { type: 'activity', stage: 'initializing', message: 'Connecting to workspace…' })
 
   const result = await callTool(config, GET_WORKSPACE_PROFILE_TOOL, (tool) =>

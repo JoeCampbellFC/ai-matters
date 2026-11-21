@@ -17,8 +17,21 @@ import { ResearchSkillCard } from './ResearchSkillCard'
 import { ResearchStageTimeline } from './ResearchStageTimeline'
 
 export function MatterKnowledgePanel({ workspaceId }: { workspaceId: string }) {
-  const { runId, status, stage, documents, searchQueries, activity, coverage, skill, error, start, cancel } =
-    useMatterResearch(workspaceId)
+  const {
+    runId,
+    status,
+    stage,
+    documents,
+    searchQueries,
+    activity,
+    coverage,
+    skill,
+    error,
+    stageDurationsMs,
+    currentStageStartedAt,
+    start,
+    cancel,
+  } = useMatterResearch(workspaceId)
   const isMobile = useIsMobile()
   const [markdown, setMarkdown] = useState<string | undefined>()
   const [markdownError, setMarkdownError] = useState<string | undefined>()
@@ -50,7 +63,12 @@ export function MatterKnowledgePanel({ workspaceId }: { workspaceId: string }) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <ResearchSkillCard skill={skill} />
-          <ResearchStageTimeline stage={stage} status={status} />
+          <ResearchStageTimeline
+            stage={stage}
+            status={status}
+            stageDurationsMs={stageDurationsMs}
+            currentStageStartedAt={currentStageStartedAt}
+          />
           <ResearchActivityFeed items={activity} />
         </CardContent>
       </Card>

@@ -5,7 +5,7 @@ import { getAzureChatModel } from '../../../llm/azureOpenAI.js'
 import { incrementBudget } from '../../budget.js'
 import type { CandidateDocument, EvidenceItem } from '../../types.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { callTool, emit, requireContext, type NodeConfig } from './shared.js'
+import { callTool, emit, emitStage, requireContext, type NodeConfig } from './shared.js'
 
 // Azure/OpenAI structured outputs require every property in `required`;
 // optionality must be expressed as nullable, not .optional(), or the API
@@ -41,6 +41,8 @@ function splitIntoSections(text: string): string[] {
  * silently dropped from consideration.
  */
 export async function readAndExtract(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'reading_documents')
+
   const toRead = state.selectedDocumentIds
     .map((id) => state.candidates[id])
     .filter((c): c is CandidateDocument => Boolean(c) && c.status === 'selected')

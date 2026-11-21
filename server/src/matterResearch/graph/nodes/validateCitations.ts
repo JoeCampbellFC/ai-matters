@@ -3,7 +3,7 @@ import { getAzureChatModel } from '../../../llm/azureOpenAI.js'
 import { stripUnknownCitations, validateCitations } from '../../synthesis.js'
 import { incrementBudget } from '../../budget.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { emit, type NodeConfig } from './shared.js'
+import { emit, emitStage, type NodeConfig } from './shared.js'
 
 const MAX_REPAIR_ATTEMPTS = 2
 
@@ -17,6 +17,8 @@ const RepairSchema = z.object({ markdown: z.string() })
  * over citation formatting.
  */
 export async function validateCitationsNode(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'synthesizing')
+
   let markdown = state.sectionMarkdown.join('\n')
   let llmCalls = 0
 

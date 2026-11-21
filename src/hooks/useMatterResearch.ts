@@ -23,6 +23,28 @@ interface MatterResearchState {
   coverage?: CoverageAssessment
   skill?: SelectedSkill
   error?: { code: string; message: string }
+  /** Frozen durations (ms) for stages that have already finished. */
+  stageDurationsMs: Partial<Record<ResearchStage, number>>
+  /** Epoch ms the *current* stage started -- lets the UI tick a live elapsed counter. */
+  currentStageStartedAt?: number
+}
+
+/** Finalizes the outgoing stage's duration using `atTs` as its end time, unless it's still the same stage. */
+function finalizeStageDuration(
+  state: MatterResearchState,
+  nextStage: ResearchStage | undefined,
+  atTs: string,
+): Pick<MatterResearchState, 'stageDurationsMs' | 'currentStageStartedAt'> {
+  const now = new Date(atTs).getTime()
+  if (state.stage === nextStage) {
+    // Same stage continuing (e.g. several synthesis nodes in a row) -- don't reset the clock.
+    return { stageDurationsMs: state.stageDurationsMs, currentStageStartedAt: state.currentStageStartedAt ?? now }
+  }
+  const stageDurationsMs = { ...state.stageDurationsMs }
+  if (state.stage && state.currentStageStartedAt !== undefined) {
+    stageDurationsMs[state.stage] = now - state.currentStageStartedAt
+  }
+  return { stageDurationsMs, currentStageStartedAt: now }
 }
 
 type Action =
@@ -34,7 +56,13 @@ type Action =
 /** Caps the rendered activity feed so a long run doesn't grow this list unbounded. */
 const MAX_ACTIVITY_ITEMS = 300
 
-const INITIAL_STATE: MatterResearchState = { status: 'idle', documents: {}, searchQueries: {}, activity: [] }
+const INITIAL_STATE: MatterResearchState = {
+  status: 'idle',
+  documents: {},
+  searchQueries: {},
+  activity: [],
+  stageDurationsMs: {},
+}
 
 function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterResearchState {
   switch (event.type) {
@@ -46,7 +74,7 @@ function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterRes
         skill: { name: event.skillName, description: event.description, rationale: event.rationale },
       }
     case 'stage_changed':
-      return { ...state, stage: event.stage }
+      return { ...state, ...finalizeStageDuration(state, event.stage, event.ts), stage: event.stage }
     case 'search_planned':
       return {
         ...state,
@@ -100,11 +128,11 @@ function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterRes
     case 'coverage_assessed':
       return { ...state, coverage: { coveredTopics: event.coveredTopics, gaps: event.gaps } }
     case 'run_succeeded':
-      return { ...state, status: 'succeeded' }
+      return { ...state, ...finalizeStageDuration(state, undefined, event.ts), status: 'succeeded' }
     case 'run_failed':
-      return { ...state, status: 'failed', error: event.error }
+      return { ...state, ...finalizeStageDuration(state, undefined, event.ts), status: 'failed', error: event.error }
     case 'run_cancelled':
-      return { ...state, status: 'cancelled' }
+      return { ...state, ...finalizeStageDuration(state, undefined, event.ts), status: 'cancelled' }
     case 'heartbeat':
       return state
     default:
@@ -123,6 +151,9 @@ function reducer(state: MatterResearchState, action: Action): MatterResearchStat
         ...state,
         status: action.snapshot.status,
         stage: action.snapshot.stage,
+        // Reattaching (e.g. after a page refresh) only recovers where the *current* stage started --
+        // durations for stages that already finished before reattach aren't recoverable from a snapshot.
+        currentStageStartedAt: new Date(action.snapshot.stageStartedAt).getTime(),
         documents: Object.fromEntries(action.snapshot.documents.map((doc) => [doc.documentId, doc])),
         searchQueries: Object.fromEntries(action.snapshot.searchQueries.map((q) => [q.query, q])),
         coverage: action.snapshot.coverage,
@@ -214,6 +245,8 @@ export function useMatterResearch(workspaceId: string) {
     coverage: state.coverage,
     skill: state.skill,
     error: state.error,
+    stageDurationsMs: state.stageDurationsMs,
+    currentStageStartedAt: state.currentStageStartedAt,
     start,
     cancel,
   }

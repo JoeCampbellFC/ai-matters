@@ -1,6 +1,6 @@
 import type { CandidateDocument } from '../../types.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { emit, requireContext, type NodeConfig } from './shared.js'
+import { emit, emitStage, requireContext, type NodeConfig } from './shared.js'
 
 /** Below this relevance score a candidate isn't worth spending a fetch on. */
 const MIN_RELEVANCE = 0.35
@@ -11,6 +11,8 @@ const MIN_RELEVANCE = 0.35
  * budget cap to be used in full if fewer candidates clear the relevance bar.
  */
 export async function selectDocuments(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
+  emitStage(config, state, 'selecting_documents')
+
   const { limits } = requireContext(config)
 
   const alreadySelected = new Set(state.selectedDocumentIds)
