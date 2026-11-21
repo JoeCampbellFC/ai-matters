@@ -161,13 +161,28 @@ function buildSingleIdArgs(tool: Tool, candidates: string[], value: string, labe
   return resolved.parent ? { [resolved.parent]: { [resolved.key]: value } } : { [resolved.key]: value }
 }
 
+function isNumericType(prop: JsonSchemaProperty | undefined): boolean {
+  if (!prop || prop.type === undefined) return false
+  const types = Array.isArray(prop.type) ? prop.type : [prop.type]
+  return types.includes('number') || types.includes('integer')
+}
+
+/** Cursors are opaque per MCP server -- some encode them as strings, others (like iManage) as numbers. */
+function coerceCursor(value: string, prop: JsonSchemaProperty | undefined): string | number {
+  if (!isNumericType(prop)) return value
+  const numeric = Number(value)
+  return Number.isNaN(numeric) ? value : numeric
+}
+
 function addPaginationFields(
   target: Record<string, unknown>,
   scopeProperties: Record<string, JsonSchemaProperty>,
   input: { cursor?: string; limit?: number },
 ): void {
   const cursorKey = CURSOR_PARAM_CANDIDATES.find((candidate) => candidate in scopeProperties)
-  if (cursorKey && input.cursor) target[cursorKey] = input.cursor
+  if (cursorKey && input.cursor !== undefined) {
+    target[cursorKey] = coerceCursor(input.cursor, scopeProperties[cursorKey])
+  }
   const limitKey = LIMIT_PARAM_CANDIDATES.find((candidate) => candidate in scopeProperties)
   if (limitKey && input.limit !== undefined) target[limitKey] = Math.min(input.limit, MAX_CONTAINER_PAGE_SIZE)
 }

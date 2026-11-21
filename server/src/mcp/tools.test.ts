@@ -162,6 +162,23 @@ describe('buildGetContainerChildrenArgs', () => {
       buildGetContainerChildrenArgs(t, { containerId: 'FOLDER-1', containerType: 'folder', cursor: 'abc', limit: 500 }),
     ).toEqual({ container_id: 'FOLDER-1', container_type: 'folder', cursor: 'abc', limit: 100 })
   })
+
+  it('coerces the cursor to a number when the schema declares a numeric cursor (e.g. iManage)', () => {
+    const t = tool({
+      name: 'get_container_children',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          container_id: { type: 'string' },
+          container_type: { type: 'string' },
+          cursor: { type: 'number' },
+        },
+      },
+    })
+    expect(buildGetContainerChildrenArgs(t, { containerId: 'FOLDER-1', containerType: 'folder', cursor: '2' })).toEqual(
+      { container_id: 'FOLDER-1', container_type: 'folder', cursor: 2 },
+    )
+  })
 })
 
 describe('buildGlobalSearchArgs', () => {
