@@ -13,13 +13,16 @@ const COVERAGE_TOPICS = [
   'current status and outcome',
 ]
 
+// Azure/OpenAI structured outputs require every property in `required`;
+// optionality must be expressed as nullable, not .optional(), or the API
+// rejects the schema outright ("'required' ... missing 'suggestedQueries'").
 const CoverageSchema = z.object({
   coveredTopics: z.array(z.string()),
   gaps: z.array(
     z.object({
       topic: z.string().min(1),
       reason: z.string().min(1),
-      suggestedQueries: z.array(z.string()).optional(),
+      suggestedQueries: z.array(z.string()).nullable(),
     }),
   ),
 })
@@ -49,24 +52,23 @@ export async function assessCoverage(state: ResearchState, config: NodeConfig): 
 
   const model = getAzureChatModel().withStructuredOutput(CoverageSchema)
   const response = await model.invoke(prompt, { signal: config.signal })
+  const gaps = response.gaps.map((gap) => ({ ...gap, suggestedQueries: gap.suggestedQueries ?? undefined }))
 
   emit(config, {
     type: 'coverage_assessed',
     coveredTopics: response.coveredTopics,
-    gaps: response.gaps,
+    gaps,
     iteration: state.budget.iterationCount,
   })
   emit(config, {
     type: 'activity',
     stage: 'assessing_coverage',
     message:
-      response.gaps.length > 0
-        ? `Identified ${response.gaps.length} missing ${response.gaps.length === 1 ? 'area' : 'areas'}`
-        : 'Coverage looks complete',
+      gaps.length > 0 ? `Identified ${gaps.length} missing ${gaps.length === 1 ? 'area' : 'areas'}` : 'Coverage looks complete',
   })
 
   return {
-    coverage: { coveredTopics: response.coveredTopics, gaps: response.gaps },
+    coverage: { coveredTopics: response.coveredTopics, gaps },
     budget: incrementBudget(state.budget, { llmCalls: 1 }),
   }
 }

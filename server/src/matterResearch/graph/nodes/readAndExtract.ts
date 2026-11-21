@@ -7,11 +7,14 @@ import type { CandidateDocument, EvidenceItem } from '../../types.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
 import { callTool, emit, requireContext, type NodeConfig } from './shared.js'
 
+// Azure/OpenAI structured outputs require every property in `required`;
+// optionality must be expressed as nullable, not .optional(), or the API
+// rejects the schema outright.
 const EvidenceSchema = z.object({
   claims: z.array(
     z.object({
       claim: z.string().min(1),
-      quote: z.string().optional(),
+      quote: z.string().nullable(),
       topic: z.string().min(1),
       confidence: z.enum(['high', 'medium', 'low']),
     }),
@@ -78,8 +81,12 @@ export async function readAndExtract(state: ResearchState, config: NodeConfig): 
     const fetched = mapToolResultToFetchedDocument(result, doc.documentId)
 
     const sections = splitIntoSections(fetched.text)
-    const documentClaims: Array<{ claim: string; quote?: string; topic: string; confidence: 'high' | 'medium' | 'low' }> =
-      []
+    const documentClaims: Array<{
+      claim: string
+      quote: string | null
+      topic: string
+      confidence: 'high' | 'medium' | 'low'
+    }> = []
     for (const [index, section] of sections.entries()) {
       const prompt = [
         `Extract key factual claims from this excerpt of "${doc.name ?? doc.documentId}"` +
@@ -102,7 +109,7 @@ export async function readAndExtract(state: ResearchState, config: NodeConfig): 
         id: `E${String(evidenceCounter).padStart(3, '0')}`,
         documentId: doc.documentId,
         claim: claim.claim,
-        quote: claim.quote,
+        quote: claim.quote ?? undefined,
         topic: claim.topic,
         confidence: claim.confidence,
       })
