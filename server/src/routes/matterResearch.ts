@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { getConnection } from '../mcp/connection.js'
+import { actorFor, resolveAccessibleMatter } from '../services/matterAccessService.js'
 import { RunNotFoundError, RunNotReadyError } from '../matterResearch/errors.js'
 import { formatSseEvent } from '../matterResearch/sseFormat.js'
 import {
@@ -38,7 +39,8 @@ matterResearchRouter.post('/:workspaceId/research', async (req, res, next) => {
       return
     }
 
-    const run = startResearchRun({ sessionId: req.sessionID, workspaceId, client, tools })
+    const { matter } = await resolveAccessibleMatter(req, workspaceId!)
+    const run = startResearchRun({ sessionId: req.sessionID, workspaceId: workspaceId!, matterId: matter.id, actor: actorFor(req), client, tools })
     res.status(202).json({ runId: run.runId, status: run.status, stage: run.stage })
   } catch (error) {
     next(error)

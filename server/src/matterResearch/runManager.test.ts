@@ -2,19 +2,24 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
 
-const { streamImpl, classifyFromCompletedRun } = vi.hoisted(() => ({
+const { streamImpl, classifyFromCompletedRun, resolveOrCreateMatter, recordRunStarted, recordRunCompleted } = vi.hoisted(() => ({
   streamImpl: vi.fn(),
-  classifyFromCompletedRun: vi.fn().mockResolvedValue(undefined),
+  classifyFromCompletedRun: vi.fn().mockResolvedValue({ versionId: 'version-1', profile: {} }),
+  resolveOrCreateMatter: vi.fn().mockResolvedValue({ id: 'matter-1' }),
+  recordRunStarted: vi.fn().mockResolvedValue(undefined),
+  recordRunCompleted: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('./graph/graph.js', () => ({
   buildMatterResearchGraph: () => ({ stream: streamImpl }),
 }))
 
-// Classification is triggered automatically on a successful run (see
-// runManager.ts's triggerClassification) -- mocked here so these tests never
-// make a real Azure OpenAI Decisions API call.
-vi.mock('../classification/matterClassificationService.js', () => ({ classifyFromCompletedRun }))
+// Classification/persistence are triggered automatically on a successful run
+// (see runManager.ts's triggerClassification) -- mocked here so these tests
+// never make a real Azure OpenAI Decisions API call or touch a real database.
+vi.mock('../services/matterProfileService.js', () => ({ classifyFromCompletedRun }))
+vi.mock('../database/repositories/matterRepository.js', () => ({ resolveOrCreateMatter }))
+vi.mock('../database/repositories/researchRunRepository.js', () => ({ recordRunStarted, recordRunCompleted }))
 
 const {
   startResearchRun,
@@ -62,6 +67,8 @@ describe('startResearchRun / lifecycle', () => {
     const run = startResearchRun({
       sessionId: 'session-1',
       workspaceId: 'WS-1',
+      matterId: 'matter-1',
+      actor: 'test-actor',
       client: FAKE_CLIENT,
       tools: FAKE_TOOLS,
     })
@@ -94,6 +101,8 @@ describe('startResearchRun / lifecycle', () => {
     const run = startResearchRun({
       sessionId: 'session-search',
       workspaceId: 'WS-search',
+      matterId: 'matter-1',
+      actor: 'test-actor',
       client: FAKE_CLIENT,
       tools: FAKE_TOOLS,
     })
@@ -114,6 +123,8 @@ describe('startResearchRun / lifecycle', () => {
     const run = startResearchRun({
       sessionId: 'session-2',
       workspaceId: 'WS-2',
+      matterId: 'matter-1',
+      actor: 'test-actor',
       client: FAKE_CLIENT,
       tools: FAKE_TOOLS,
     })
@@ -133,6 +144,8 @@ describe('startResearchRun / lifecycle', () => {
     const run = startResearchRun({
       sessionId: 'session-3',
       workspaceId: 'WS-3',
+      matterId: 'matter-1',
+      actor: 'test-actor',
       client: FAKE_CLIENT,
       tools: FAKE_TOOLS,
     })
@@ -148,12 +161,21 @@ describe('startResearchRun / lifecycle', () => {
     const run = startResearchRun({
       sessionId: 'session-4',
       workspaceId: 'WS-4',
+      matterId: 'matter-1',
+      actor: 'test-actor',
       client: FAKE_CLIENT,
       tools: FAKE_TOOLS,
     })
 
     expect(() =>
-      startResearchRun({ sessionId: 'session-4', workspaceId: 'WS-4', client: FAKE_CLIENT, tools: FAKE_TOOLS }),
+      startResearchRun({
+        sessionId: 'session-4',
+        workspaceId: 'WS-4',
+        matterId: 'matter-1',
+        actor: 'test-actor',
+        client: FAKE_CLIENT,
+        tools: FAKE_TOOLS,
+      }),
     ).toThrow(RunAlreadyInProgressError)
     expect(findActiveRunForWorkspace('session-4', 'WS-4')?.runId).toBe(run.runId)
 
@@ -166,6 +188,8 @@ describe('startResearchRun / lifecycle', () => {
     const run = startResearchRun({
       sessionId: 'owner-session',
       workspaceId: 'WS-5',
+      matterId: 'matter-1',
+      actor: 'test-actor',
       client: FAKE_CLIENT,
       tools: FAKE_TOOLS,
     })
@@ -192,6 +216,8 @@ describe('stage tracking', () => {
     const run = startResearchRun({
       sessionId: 'session-stage',
       workspaceId: 'WS-stage',
+      matterId: 'matter-1',
+      actor: 'test-actor',
       client: FAKE_CLIENT,
       tools: FAKE_TOOLS,
     })
@@ -215,6 +241,8 @@ describe('sweepStaleRuns', () => {
     const finished = startResearchRun({
       sessionId: 'sweep-session',
       workspaceId: 'WS-finished',
+      matterId: 'matter-1',
+      actor: 'test-actor',
       client: FAKE_CLIENT,
       tools: FAKE_TOOLS,
     })
@@ -225,6 +253,8 @@ describe('sweepStaleRuns', () => {
     const running = startResearchRun({
       sessionId: 'sweep-session',
       workspaceId: 'WS-running',
+      matterId: 'matter-1',
+      actor: 'test-actor',
       client: FAKE_CLIENT,
       tools: FAKE_TOOLS,
     })

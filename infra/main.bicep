@@ -52,11 +52,37 @@ param azureOpenAiDeploymentName string
 @description('Azure OpenAI Decisions API deployment name used for Phase 3 matter classification.')
 param azureOpenAiDecisionsDeploymentName string = 'gpt-6-luna'
 
+@description('Identifies which iManage tenant this deployment serves -- see server/src/config.ts tenantId.')
+param tenantIdForApp string = 'default-tenant'
+
+@description('Name of the PostgreSQL Flexible Server (Phase 4). Must be globally unique across Azure.')
+param postgresServerName string
+
+@description('PostgreSQL compute SKU.')
+param postgresSkuName string = 'Standard_B1ms'
+
+@description('PostgreSQL SKU tier.')
+param postgresSkuTier string = 'Burstable'
+
+@description('Object id of the Entra principal (your own user, typically) to register as the Postgres server administrator -- used only for the one-time bootstrap step, never the app\'s own runtime identity. Get with: az ad signed-in-user show --query id -o tsv')
+param postgresAdministratorObjectId string
+
+@description('Display name/UPN of the administrator principal above.')
+param postgresAdministratorPrincipalName string
+
+@description('Principal type of the administrator above.')
+@allowed(['User', 'Group', 'ServicePrincipal'])
+param postgresAdministratorPrincipalType string = 'User'
+
+@description('Tags applied to every resource in this template -- pass the resource group\'s existing governance tags explicitly so a redeploy never silently strips them (ARM does not reliably preserve unlisted tags on every resource type).')
+param tags object = {}
+
 var appUrl = 'https://${appName}.azurewebsites.net'
 
 resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: '${appName}-plan'
   location: location
+  tags: tags
   kind: 'linux'
   sku: {
     name: skuName
@@ -66,9 +92,27 @@ resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
   }
 }
 
+module postgres 'modules/postgres.bicep' = {
+  name: '${appName}-postgres-deployment'
+  params: {
+    serverName: postgresServerName
+    location: location
+    skuName: postgresSkuName
+    skuTier: postgresSkuTier
+    administratorObjectId: postgresAdministratorObjectId
+    administratorPrincipalName: postgresAdministratorPrincipalName
+    administratorPrincipalType: postgresAdministratorPrincipalType
+    tags: tags
+  }
+}
+
 resource site 'Microsoft.Web/sites@2023-12-01' = {
   name: appName
   location: location
+  tags: tags
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     serverFarmId: plan.id
     httpsOnly: true
@@ -91,6 +135,17 @@ resource site 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'AZURE_OPENAI_API_KEY', value: azureOpenAiApiKey }
         { name: 'AZURE_OPENAI_DEPLOYMENT_NAME', value: azureOpenAiDeploymentName }
         { name: 'AZURE_OPENAI_DECISIONS_DEPLOYMENT_NAME', value: azureOpenAiDecisionsDeploymentName }
+        { name: 'TENANT_ID', value: tenantIdForApp }
+        // Entra-only auth: the app authenticates to Postgres as its own
+        // system-assigned managed identity (DATABASE_USER = this App
+        // Service's name, granted a scoped non-admin role via the one-time
+        // bootstrap step -- see infra/README.md). No password is ever set.
+        { name: 'DATABASE_HOST', value: postgres.outputs.serverFqdn }
+        { name: 'DATABASE_PORT', value: '5432' }
+        { name: 'DATABASE_NAME', value: 'ai_matters' }
+        { name: 'DATABASE_USER', value: appName }
+        { name: 'DATABASE_SSL', value: 'true' }
+        { name: 'DATABASE_AUTH_MODE', value: 'entra' }
       ]
     }
   }
@@ -101,3 +156,9 @@ output appUrl string = appUrl
 
 @description('Register this exact URL as the redirect URI on your iManage OAuth client.')
 output oauthRedirectUrl string = '${appUrl}/api/auth/callback'
+
+@description('The App Service\'s system-assigned managed identity object id -- needed for the Postgres bootstrap step (infra/README.md).')
+output appManagedIdentityObjectId string = site.identity.principalId
+
+@description('The Postgres server\'s FQDN.')
+output postgresServerFqdn string = postgres.outputs.serverFqdn

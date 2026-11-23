@@ -15,9 +15,8 @@ import {
   DecisionsDeploymentUnavailableError,
   DecisionsRateLimitedError,
   DecisionsRequestError,
-  MarkdownNotReadyError,
-  MatterProfileNotFoundError,
 } from './classification/errors.js'
+import { ConcurrencyConflictError, MarkdownNotPublishedError, MatterNotFoundError, StaleMarkdownVersionError } from './database/errors.js'
 
 export interface ErrorResponseBody {
   error: {
@@ -66,12 +65,6 @@ export function classifyError(error: unknown): { status: number; code: string; m
   if (error instanceof LlmRequestError) {
     return { status: 502, code: 'llm_request_error', message: error.message }
   }
-  if (error instanceof MatterProfileNotFoundError) {
-    return { status: 404, code: 'matter_profile_not_found', message: error.message }
-  }
-  if (error instanceof MarkdownNotReadyError) {
-    return { status: 409, code: 'markdown_not_ready', message: error.message }
-  }
   if (error instanceof ClassificationInProgressError) {
     return { status: 409, code: 'classification_in_progress', message: error.message }
   }
@@ -86,6 +79,18 @@ export function classifyError(error: unknown): { status: number; code: string; m
   }
   if (error instanceof DecisionsRequestError) {
     return { status: 502, code: 'decisions_request_error', message: error.message }
+  }
+  if (error instanceof MatterNotFoundError) {
+    return { status: 404, code: 'matter_not_found', message: error.message }
+  }
+  if (error instanceof ConcurrencyConflictError) {
+    return { status: 409, code: 'concurrency_conflict', message: error.message }
+  }
+  if (error instanceof StaleMarkdownVersionError) {
+    return { status: 409, code: 'stale_markdown_version', message: error.message }
+  }
+  if (error instanceof MarkdownNotPublishedError) {
+    return { status: 409, code: 'markdown_not_published', message: error.message }
   }
   if (error instanceof z.ZodError) {
     return { status: 400, code: 'invalid_request', message: error.issues[0]?.message ?? 'Invalid request.' }

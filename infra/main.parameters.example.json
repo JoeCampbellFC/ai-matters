@@ -8,6 +8,14 @@
     "azureOpenAiDeploymentName": { "value": "" },
     "azureOpenAiDecisionsDeploymentName": { "value": "gpt-6-luna" },
     "sessionSecret": { "value": "" },
-    "azureOpenAiApiKey": { "value": "" }
+    "azureOpenAiApiKey": { "value": "" },
+    "tenantIdForApp": { "value": "" },
+    "postgresServerName": { "value": "" },
+    "postgresSkuName": { "value": "Standard_B1ms" },
+    "postgresSkuTier": { "value": "Burstable" },
+    "postgresAdministratorObjectId": { "value": "" },
+    "postgresAdministratorPrincipalName": { "value": "" },
+    "postgresAdministratorPrincipalType": { "value": "User" },
+    "tags": { "value": {} }
   }
 }

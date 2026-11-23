@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, FolderOpen, Inbox } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/table'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { AlertCircle } from 'lucide-react'
+import type { MatterSummary } from '@/types/matterProfile'
 import type { Workspace } from '@/types/workspace'
 
 type SortKey = 'name' | 'client' | 'matter' | 'owner' | 'lastModified'
@@ -39,6 +41,8 @@ interface WorkspaceTableProps {
   onSelect: (workspace: Workspace) => void
   emptyTitle: string
   emptyDescription: string
+  /** Keyed by workspaceId -- persisted Phase 4 "already analysed" status, batch-fetched by the caller. Omitted columns render only once at least one row has a summary. */
+  matterSummaries?: Map<string, MatterSummary>
 }
 
 export function WorkspaceTable({
@@ -50,7 +54,9 @@ export function WorkspaceTable({
   onSelect,
   emptyTitle,
   emptyDescription,
+  matterSummaries,
 }: WorkspaceTableProps) {
+  const showMatterColumn = Boolean(matterSummaries?.size)
   const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null)
 
   const visibleColumns = useMemo(() => COLUMNS.filter((column) => column.show(workspaces)), [workspaces])
@@ -96,6 +102,7 @@ export function WorkspaceTable({
               {COLUMNS.map((column) => (
                 <TableHead key={column.key}>{column.label}</TableHead>
               ))}
+              {showMatterColumn && <TableHead>Knowledge</TableHead>}
               <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
@@ -107,6 +114,11 @@ export function WorkspaceTable({
                     <Skeleton className="h-4 w-32" />
                   </TableCell>
                 ))}
+                {showMatterColumn && (
+                  <TableCell>
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell>
+                )}
                 <TableCell>
                   <Skeleton className="h-7 w-16" />
                 </TableCell>
@@ -153,6 +165,7 @@ export function WorkspaceTable({
                 </button>
               </TableHead>
             ))}
+            {showMatterColumn && <TableHead>Knowledge</TableHead>}
             <TableHead className="w-24">Action</TableHead>
           </TableRow>
         </TableHeader>
@@ -169,6 +182,15 @@ export function WorkspaceTable({
                   {workspace[column.key] ?? '—'}
                 </TableCell>
               ))}
+              {showMatterColumn && (
+                <TableCell>
+                  {matterSummaries?.get(workspace.id) ? (
+                    <Badge variant="outline">{matterSummaries.get(workspace.id)!.hasKnowledge ? 'Generated' : 'Not Generated'}</Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+              )}
               <TableCell>
                 <Button
                   variant="outline"

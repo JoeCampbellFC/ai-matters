@@ -11,7 +11,9 @@ import { useWorkspaceCache } from '@/context/WorkspaceCacheContext'
 import { useLibraries } from '@/hooks/useLibraries'
 import { useMcpStatus } from '@/hooks/useMcpConnection'
 import { useRecentWorkspaces, useWorkspaceSearch } from '@/hooks/useWorkspaces'
+import { fetchMattersBatch } from '@/services/matterProfileApi'
 import { startMcpConnect } from '@/services/mcpService'
+import type { MatterSummary } from '@/types/matterProfile'
 import type { Workspace } from '@/types/workspace'
 
 export function WorkspacesPage() {
@@ -41,6 +43,23 @@ export function WorkspacesPage() {
   useEffect(() => {
     if (search.data) remember(search.data)
   }, [search.data, remember])
+
+  const activeTabData = activeTab === 'recent' ? recent.data : search.data
+  const [matterSummaries, setMatterSummaries] = useState<Map<string, MatterSummary>>(new Map())
+
+  useEffect(() => {
+    const workspaceIds = (activeTabData ?? []).map((w) => w.id)
+    if (workspaceIds.length === 0) return
+    let active = true
+    fetchMattersBatch(workspaceIds)
+      .then((matters) => {
+        if (active) setMatterSummaries(new Map(matters.map((m) => [m.workspaceId, m])))
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [activeTabData])
 
   function handleSelect(workspace: Workspace) {
     remember([workspace])
@@ -128,6 +147,7 @@ export function WorkspacesPage() {
                   onSelect={handleSelect}
                   emptyTitle="No recent workspaces"
                   emptyDescription="Workspaces you've opened recently in iManage Work will show up here."
+                  matterSummaries={matterSummaries}
                 />
               </TabsContent>
             )}
@@ -143,6 +163,7 @@ export function WorkspacesPage() {
                     onSelect={handleSelect}
                     emptyTitle="No matching workspaces"
                     emptyDescription={`No workspaces matched "${submittedQuery}". Try a different search term.`}
+                    matterSummaries={matterSummaries}
                   />
                 ) : (
                   <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">

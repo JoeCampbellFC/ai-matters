@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ApiError } from '@/services/api'
 import {
   classifyMatter,
-  correctMatterField,
   fetchClassificationFields,
   fetchMatterProfile,
   reclassifyMatter,
+  updateProfileFields,
 } from '@/services/matterProfileApi'
-import type { ClassificationFieldOption, MatterProfile } from '@/types/matterProfile'
+import type { ClassificationFieldOption, MatterProfile, ProfileFieldUpdate } from '@/types/matterProfile'
 import type { ResearchRunStatus } from '@/types/research'
 import type { ClassificationLiveSignal } from './useMatterResearch'
 
@@ -24,6 +25,7 @@ export function useMatterProfile(
   const [fieldOptions, setFieldOptions] = useState<ClassificationFieldOption[]>([])
   const [actionPending, setActionPending] = useState(false)
   const [actionError, setActionError] = useState<string | undefined>()
+  const [conflict, setConflict] = useState(false)
   const lastHandledLiveStatus = useRef<string | undefined>(undefined)
 
   // Resets profile state when workspaceId changes, adjusted during render
@@ -72,11 +74,19 @@ export function useMatterProfile(
   const runAction = useCallback(async (action: () => Promise<MatterProfile>) => {
     setActionPending(true)
     setActionError(undefined)
+    setConflict(false)
     try {
       const result = await action()
       setProfile(result)
+      return true
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'The request failed.')
+      if (error instanceof ApiError && error.status === 409 && error.code === 'concurrency_conflict') {
+        setConflict(true)
+        setActionError('Someone else changed this field since you loaded it. Reload to see the latest values.')
+      } else {
+        setActionError(error instanceof Error ? error.message : 'The request failed.')
+      }
+      return false
     } finally {
       setActionPending(false)
     }
@@ -85,11 +95,28 @@ export function useMatterProfile(
   const retryClassification = useCallback(() => runAction(() => classifyMatter(workspaceId)), [runAction, workspaceId])
   const reclassify = useCallback(() => runAction(() => reclassifyMatter(workspaceId)), [runAction, workspaceId])
   const correct = useCallback(
-    (fieldId: string, valueId: string) => runAction(() => correctMatterField(workspaceId, { fieldId, valueId })),
+    (fieldId: string, valueId: string, expectedVersion: number) =>
+      runAction(() => updateProfileFields(workspaceId, [{ fieldKey: fieldId, value: valueId, expectedVersion }])),
+    [runAction, workspaceId],
+  )
+  const saveProfileFields = useCallback(
+    (updates: ProfileFieldUpdate[]) => runAction(() => updateProfileFields(workspaceId, updates)),
     [runAction, workspaceId],
   )
 
   const isClassifying = live.classificationLive?.status === 'classifying'
 
-  return { profile, fieldOptions, isClassifying, actionPending, actionError, retryClassification, reclassify, correct }
+  return {
+    profile,
+    fieldOptions,
+    isClassifying,
+    actionPending,
+    actionError,
+    conflict,
+    refresh,
+    retryClassification,
+    reclassify,
+    correct,
+    saveProfileFields,
+  }
 }

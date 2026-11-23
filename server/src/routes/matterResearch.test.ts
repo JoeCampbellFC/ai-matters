@@ -6,8 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { classifyError } from '../httpErrors.js'
 import { NotConnectedError } from '../mcp/errors.js'
 
-const { getConnection } = vi.hoisted(() => ({ getConnection: vi.fn() }))
+const { getConnection, resolveAccessibleMatter, actorFor } = vi.hoisted(() => ({
+  getConnection: vi.fn(),
+  resolveAccessibleMatter: vi.fn(),
+  actorFor: vi.fn().mockReturnValue('test-actor'),
+}))
 vi.mock('../mcp/connection.js', () => ({ getConnection }))
+vi.mock('../services/matterAccessService.js', () => ({ resolveAccessibleMatter, actorFor }))
 
 const runManagerMocks = vi.hoisted(() => ({
   findActiveRunForWorkspace: vi.fn(),
@@ -56,6 +61,8 @@ function fakeRun(overrides: Partial<Record<string, unknown>> = {}) {
 
 beforeEach(() => {
   getConnection.mockReset()
+  resolveAccessibleMatter.mockReset().mockResolvedValue({ matter: { id: 'matter-1' }, workspace: { id: 'WS-1', name: 'Acme Matter' } })
+  actorFor.mockReturnValue('test-actor')
   for (const mockFn of Object.values(runManagerMocks)) mockFn.mockReset()
   runManagerMocks.assertRunOwnedBySession.mockImplementation(() => {})
 })
@@ -83,6 +90,9 @@ describe('POST /api/matters/:workspaceId/research', () => {
     const res = await request(buildApp()).post('/api/matters/WS-1/research')
     expect(res.status).toBe(202)
     expect(res.body).toMatchObject({ runId: 'run-1', status: 'running', stage: 'initializing' })
+    expect(runManagerMocks.startResearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: 'WS-1', matterId: 'matter-1', actor: 'test-actor' }),
+    )
   })
 })
 

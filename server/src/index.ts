@@ -11,9 +11,12 @@ import { workspacesRouter } from './routes/workspaces.js'
 import { librariesRouter } from './routes/libraries.js'
 import { matterResearchRouter } from './routes/matterResearch.js'
 import { matterProfileRouter } from './routes/matterProfile.js'
+import { fieldDefinitionsRouter } from './routes/fieldDefinitions.js'
 import { classifyError } from './httpErrors.js'
 import { verifyAzureOpenAiConnectivity } from './llm/azureOpenAI.js'
 import { sweepStaleRuns } from './matterResearch/runManager.js'
+import { verifyDatabaseConnectivity } from './database/connection.js'
+import { seedFieldDefinitions } from './database/repositories/fieldDefinitionRepository.js'
 
 const app = express()
 
@@ -40,6 +43,7 @@ app.use('/api/workspaces', workspacesRouter)
 app.use('/api/libraries', librariesRouter)
 app.use('/api/matters', matterResearchRouter)
 app.use('/api/matters', matterProfileRouter)
+app.use('/api/field-definitions', fieldDefinitionsRouter)
 
 // Populated only in the deployed package (the CI pipeline copies the built
 // frontend here, see azure-pipelines.yml) -- absent in local dev, where Vite
@@ -80,5 +84,14 @@ app.listen(config.port, () => {
 verifyAzureOpenAiConnectivity().catch((error) => {
   console.error('[server] Azure OpenAI connectivity check failed at startup:', (error as Error).message)
 })
+
+// Non-blocking for the same reason -- Phase 1 auth/workspace features don't
+// depend on Postgres. seedFieldDefinitions() is idempotent (onConflictDoNothing),
+// safe to run on every boot.
+verifyDatabaseConnectivity()
+  .then(() => seedFieldDefinitions())
+  .catch((error) => {
+    console.error('[server] Database connectivity/seed check failed at startup:', (error as Error).message)
+  })
 
 setInterval(sweepStaleRuns, 5 * 60 * 1000).unref()

@@ -8,6 +8,7 @@ import type { ClassificationFieldLiveSignal, ClassificationLiveSignal } from '@/
 import { useMatterProfile } from '@/hooks/useMatterProfile'
 import type { ResearchRunStatus } from '@/types/research'
 import { ClassificationFieldsTable, buildClassificationRows } from './ClassificationFieldsTable'
+import { MatterProfileForm } from './MatterProfileForm'
 
 /**
  * The first, full-width panel on a workspace's matter page: iManage-sourced
@@ -38,10 +39,11 @@ export function MatterProfileCard({
   classificationLive?: ClassificationLiveSignal
   classificationFieldsLive: Record<string, ClassificationFieldLiveSignal>
 }) {
-  const { profile, fieldOptions, isClassifying, actionPending, actionError, reclassify, correct } = useMatterProfile(workspaceId, {
-    researchStatus,
-    classificationLive,
-  })
+  const { profile, fieldOptions, isClassifying, actionPending, actionError, conflict, reclassify, correct, saveProfileFields, refresh } =
+    useMatterProfile(workspaceId, {
+      researchStatus,
+      classificationLive,
+    })
   const [correctionFieldId, setCorrectionFieldId] = useState<string | undefined>()
   const [correctionValueId, setCorrectionValueId] = useState<string | undefined>()
 
@@ -95,6 +97,16 @@ export function MatterProfileCard({
           <ClassificationFieldsTable rows={rows} />
 
           {profile && (
+            <MatterProfileForm
+              profileFields={profile.profileFields}
+              onSave={saveProfileFields}
+              saving={actionPending}
+              conflict={conflict}
+              onReload={refresh}
+            />
+          )}
+
+          {profile && (
             <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="outline" disabled={actionPending} onClick={() => void reclassify()}>
                 <RotateCcw className="size-3.5" />
@@ -137,7 +149,8 @@ export function MatterProfileCard({
                 size="sm"
                 disabled={!correctionFieldId || !correctionValueId || actionPending}
                 onClick={() => {
-                  if (correctionFieldId && correctionValueId) void correct(correctionFieldId, correctionValueId)
+                  const fieldVersion = profile?.fields.find((f) => f.fieldId === correctionFieldId)?.version ?? 0
+                  if (correctionFieldId && correctionValueId) void correct(correctionFieldId, correctionValueId, fieldVersion)
                   setCorrectionFieldId(undefined)
                   setCorrectionValueId(undefined)
                 }}

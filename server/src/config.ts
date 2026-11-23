@@ -45,6 +45,21 @@ export const config = {
   researchMaxMcpCalls: Number(process.env.RESEARCH_MAX_MCP_CALLS ?? 300),
   researchRunTtlMs: Number(process.env.RESEARCH_RUN_TTL_MS ?? 30 * 60 * 1000),
   researchEventBufferMax: Number(process.env.RESEARCH_EVENT_BUFFER_MAX ?? 2000),
+
+  // Phase 4: PostgreSQL. 'entra' mode (Azure) authenticates the managed
+  // identity via @azure/identity instead of a static password -- see
+  // database/connection.ts.
+  databaseHost: requireEnv('DATABASE_HOST', 'localhost'),
+  databasePort: Number(process.env.DATABASE_PORT ?? 5432),
+  databaseName: requireEnv('DATABASE_NAME', 'ai_matters'),
+  databaseUser: requireEnv('DATABASE_USER', 'ai_matters_dev'),
+  databasePassword: process.env.DATABASE_PASSWORD,
+  databaseSsl: (process.env.DATABASE_SSL ?? 'false') === 'true',
+  databaseAuthMode: (process.env.DATABASE_AUTH_MODE ?? 'password') as 'password' | 'entra',
+
+  // Identifies which iManage tenant this deployment serves -- avoids
+  // assuming workspace ids are globally unique across iManage environments.
+  tenantId: requireEnv('TENANT_ID', 'dev-tenant'),
 }
 
 export type AppConfig = typeof config

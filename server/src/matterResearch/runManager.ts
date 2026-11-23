@@ -3,8 +3,11 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
 import { config } from '../config.js'
 import { classifyError } from '../httpErrors.js'
-import { ClassificationInProgressError, MarkdownNotReadyError } from '../classification/errors.js'
-import { classifyFromCompletedRun } from '../classification/matterClassificationService.js'
+import { ClassificationInProgressError } from '../classification/errors.js'
+import { MarkdownNotPublishedError } from '../database/errors.js'
+import { resolveOrCreateMatter } from '../database/repositories/matterRepository.js'
+import { recordRunCompleted, recordRunStarted } from '../database/repositories/researchRunRepository.js'
+import { classifyFromCompletedRun } from '../services/matterProfileService.js'
 import { budgetLimitsFromConfig } from './budget.js'
 import { RunAlreadyInProgressError, RunNotFoundError } from './errors.js'
 import { buildMatterResearchGraph } from './graph/graph.js'
@@ -33,6 +36,10 @@ export interface ResearchRunRecord {
   runId: string
   sessionId: string
   workspaceId: string
+  /** Resolved (created if needed) at run start -- see startResearchRun. */
+  matterId: string
+  /** Attribution label (OIDC sub/email, falling back to sessionId) -- display/audit only, see services/matterAccessService.ts. */
+  actor: string
   status: ResearchRunStatus
   stage: ResearchStage
   createdAt: Date
@@ -161,23 +168,27 @@ export function recordHeartbeat(run: ResearchRunRecord): void {
 }
 
 /**
- * Fires Phase 3 classification automatically once (and only once) a run has
- * actually succeeded with a non-empty Markdown result -- never on a failed
- * or cancelled run. Reuses this run's own SSE event log (classification_*
- * events) rather than a separate progress channel. Fire-and-forget: a
- * classification failure must never affect the research run's own already-
- * settled status.
+ * Fires Phase 3 persistence+classification automatically once (and only
+ * once) a run has actually succeeded with a non-empty Markdown result --
+ * never on a failed or cancelled run. Reuses this run's own SSE event log
+ * (classification_* events) rather than a separate progress channel.
+ * Fire-and-forget: a persistence/classification failure must never affect
+ * the research run's own already-settled status (it's reported separately,
+ * via classification_failed, and via matter_research_runs.errorSummary).
  */
 function triggerClassification(run: ResearchRunRecord, workspaceName: string | undefined, documentsUsed: number): void {
   if (!run.result) return
+  if (workspaceName) {
+    resolveOrCreateMatter({ tenantId: config.tenantId, libraryId: null, workspaceId: run.workspaceId }, { workspaceName, createdBy: run.actor }).catch(
+      (dbError: unknown) => console.error(`[research:${run.runId}] failed to refresh matter workspace name:`, (dbError as Error).message),
+    )
+  }
   classifyFromCompletedRun(
     {
-      sessionId: run.sessionId,
-      workspaceId: run.workspaceId,
-      workspaceName,
+      matterId: run.matterId,
       researchRunId: run.runId,
       markdown: run.result.markdown,
-      documentsUsed,
+      createdBy: run.actor,
     },
     {
       onStarted: () => pushEvent(run, { type: 'classification_started' }),
@@ -196,13 +207,31 @@ function triggerClassification(run: ResearchRunRecord, workspaceName: string | u
       onCompleted: () => pushEvent(run, { type: 'classification_completed' }),
       onFailed: (error) => pushEvent(run, { type: 'classification_failed', error }),
     },
-  ).catch((error: unknown) => {
-    // The sink above already pushed classification_failed for in-process failures;
-    // this only guards the cases that throw before that (e.g. empty Markdown).
-    if (!(error instanceof MarkdownNotReadyError) && !(error instanceof ClassificationInProgressError)) {
-      console.error(`[research:${run.runId}] automatic classification failed:`, (error as Error).message)
-    }
-  })
+  )
+    .then(({ versionId }) => {
+      recordRunCompleted({
+        id: run.runId,
+        researchStatus: 'succeeded',
+        completedAt: new Date(),
+        generatedMarkdownVersionId: versionId,
+        reviewedDocumentCount: documentsUsed,
+      }).catch((dbError: unknown) => console.error(`[research:${run.runId}] failed to record run completion:`, (dbError as Error).message))
+    })
+    .catch((error: unknown) => {
+      // The sink above already pushed classification_failed for in-process failures;
+      // this only guards the cases that throw before that (e.g. empty Markdown,
+      // or the Postgres write itself failing).
+      if (!(error instanceof MarkdownNotPublishedError) && !(error instanceof ClassificationInProgressError)) {
+        console.error(`[research:${run.runId}] automatic persistence/classification failed:`, (error as Error).message)
+      }
+      recordRunCompleted({
+        id: run.runId,
+        researchStatus: 'failed',
+        completedAt: new Date(),
+        reviewedDocumentCount: documentsUsed,
+        errorSummary: (error as Error).message,
+      }).catch((dbError: unknown) => console.error(`[research:${run.runId}] failed to record run failure:`, (dbError as Error).message))
+    })
 }
 
 /** Removes terminal runs older than researchRunTtlMs. Never touches a running run. */
@@ -219,6 +248,8 @@ export function sweepStaleRuns(): void {
 export function startResearchRun(input: {
   sessionId: string
   workspaceId: string
+  matterId: string
+  actor: string
   client: Client
   tools: Tool[]
 }): ResearchRunRecord {
@@ -234,6 +265,8 @@ export function startResearchRun(input: {
     runId,
     sessionId: input.sessionId,
     workspaceId: input.workspaceId,
+    matterId: input.matterId,
+    actor: input.actor,
     status: 'running',
     stage: 'initializing',
     createdAt: startedAt,
@@ -251,6 +284,10 @@ export function startResearchRun(input: {
   }
   runsByRunId.set(runId, run)
   activeRunIdByWorkspace.set(workspaceKey(input.sessionId, input.workspaceId), runId)
+
+  recordRunStarted({ id: runId, matterId: input.matterId, startedAt }).catch((dbError: unknown) =>
+    console.error(`[research:${runId}] failed to record run start:`, (dbError as Error).message),
+  )
 
   pushEvent(run, { type: 'run_started', workspaceId: input.workspaceId })
 
@@ -289,6 +326,9 @@ async function runGraph(run: ResearchRunRecord, client: Client, tools: Tool[]): 
     if (run.abortController.signal.aborted) {
       run.status = 'cancelled'
       pushEvent(run, { type: 'run_cancelled' })
+      recordRunCompleted({ id: run.runId, researchStatus: 'cancelled', completedAt: new Date() }).catch((dbError: unknown) =>
+        console.error(`[research:${run.runId}] failed to record run cancellation:`, (dbError as Error).message),
+      )
       return
     }
 
@@ -309,12 +349,18 @@ async function runGraph(run: ResearchRunRecord, client: Client, tools: Tool[]): 
     if (run.abortController.signal.aborted) {
       run.status = 'cancelled'
       pushEvent(run, { type: 'run_cancelled' })
+      recordRunCompleted({ id: run.runId, researchStatus: 'cancelled', completedAt: new Date() }).catch((dbError: unknown) =>
+        console.error(`[research:${run.runId}] failed to record run cancellation:`, (dbError as Error).message),
+      )
       return
     }
     const classified = classifyError(error)
     run.status = 'failed'
     run.error = { code: classified.code, message: classified.message }
     pushEvent(run, { type: 'run_failed', error: run.error })
+    recordRunCompleted({ id: run.runId, researchStatus: 'failed', completedAt: new Date(), errorSummary: classified.message }).catch(
+      (dbError: unknown) => console.error(`[research:${run.runId}] failed to record run failure:`, (dbError as Error).message),
+    )
   } finally {
     activeRunIdByWorkspace.delete(workspaceKey(run.sessionId, run.workspaceId))
   }

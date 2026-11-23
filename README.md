@@ -61,7 +61,12 @@ cp server/.env.example server/.env
 # https://cloudimanage.com/mcp/work), and generate a SESSION_SECRET:
 #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
-# 4. Run both the frontend and backend
+# 4. Start a local PostgreSQL (native install, or via Docker):
+docker compose up -d postgres
+# then create the database/role matching server/.env.example's defaults, and apply migrations:
+npm --prefix server run db:migrate
+
+# 5. Run both the frontend and backend
 npm run dev:all
 ```
 
@@ -114,6 +119,15 @@ server/src/
   auth/           oauthProvider.ts (session-backed OAuthClientProvider), session.ts, jwt.ts
   routes/         auth.ts, mcp.ts, workspaces.ts, libraries.ts
 ```
+
+## Phase 4: PostgreSQL persistence
+
+Matters, Matter Knowledge Markdown (versioned), Matter Profile fields, and classification
+results are persisted in PostgreSQL (`server/src/database/`, Drizzle ORM) — shared per
+workspace across sessions, not a per-browser-session silo. See `infra/README.md` for the
+Azure Database for PostgreSQL Flexible Server setup (Entra-only auth, no passwords) and the
+one-time bootstrap step required after the first deployment. Local development uses a plain
+password against a local Postgres instance (native install or `docker-compose.yml`).
 
 ## Production notes
 

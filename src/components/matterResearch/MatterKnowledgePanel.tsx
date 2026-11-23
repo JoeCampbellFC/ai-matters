@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { AlertCircle, TerminalIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -7,9 +7,12 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useMatterKnowledge } from '@/hooks/useMatterKnowledge'
 import { useMatterResearch } from '@/hooks/useMatterResearch'
-import { fetchResearchMarkdown } from '@/services/matterResearchApi'
 import { MatterProfileCard } from '@/components/matterProfile/MatterProfileCard'
+import { MarkdownEditor } from '@/components/matterKnowledge/MarkdownEditor'
+import { MarkdownVersionHistory } from '@/components/matterKnowledge/MarkdownVersionHistory'
+import type { MatterKnowledgeVersion } from '@/types/matterKnowledge'
 import type { Workspace } from '@/types/workspace'
 import { CoverageSummary } from './CoverageSummary'
 import { GenerateSummaryButton } from './GenerateSummaryButton'
@@ -22,7 +25,6 @@ import { ResearchTerminal } from './ResearchTerminal'
 export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
   const workspaceId = workspace.id
   const {
-    runId,
     status,
     stage,
     documents,
@@ -43,26 +45,16 @@ export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
     cancel,
   } = useMatterResearch(workspaceId)
   const isMobile = useIsMobile()
-  const [markdown, setMarkdown] = useState<string | undefined>()
-  const [markdownError, setMarkdownError] = useState<string | undefined>()
-
-  useEffect(() => {
-    // Deliberately doesn't clear markdown/markdownError when status isn't
-    // 'succeeded' (e.g. while regenerating) -- the previous summary stays
-    // visible until a new one actually arrives, rather than flashing empty.
-    if (status !== 'succeeded' || !runId) return
-    let active = true
-    fetchResearchMarkdown(runId)
-      .then((result) => {
-        if (active) setMarkdown(result.markdown)
-      })
-      .catch(() => {
-        if (active) setMarkdownError("The summary finished but couldn't be loaded. Try regenerating it.")
-      })
-    return () => {
-      active = false
-    }
-  }, [status, runId])
+  const [viewingVersion, setViewingVersion] = useState<MatterKnowledgeVersion | undefined>()
+  const {
+    versions,
+    currentVersion,
+    saving: savingEdit,
+    error: knowledgeError,
+    save: saveEdit,
+    restore: restoreVersion,
+  } = useMatterKnowledge(workspaceId, status)
+  const markdown = (viewingVersion ?? currentVersion)?.content
 
   const researchPanel = (
     <div className="flex flex-col gap-4">
@@ -111,21 +103,65 @@ export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
     </div>
   )
 
+  const [editingMarkdown, setEditingMarkdown] = useState(false)
+
   const knowledgePanel = (
     <div className="flex flex-col gap-4">
-      {markdownError && (
-        <Alert variant="destructive">
-          <AlertCircle className="size-4" />
-          <AlertDescription>{markdownError}</AlertDescription>
-        </Alert>
-      )}
       {markdown && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Matter Knowledge File</CardTitle>
+            <CardDescription>
+              {currentVersion && `Version ${currentVersion.versionNumber} · ${currentVersion.source === 'user_edited' ? 'Manually Edited' : 'AI Generated'}`}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <MarkdownViewer markdown={markdown} workspaceId={workspaceId} />
+            <Tabs
+              defaultValue="view"
+              onValueChange={(value) => {
+                setEditingMarkdown(value === 'edit')
+                if (value !== 'view') setViewingVersion(undefined)
+              }}
+            >
+              <TabsList>
+                <TabsTrigger value="view">View</TabsTrigger>
+                <TabsTrigger value="edit">Edit</TabsTrigger>
+                <TabsTrigger value="history">Version History</TabsTrigger>
+              </TabsList>
+              <TabsContent value="view" className="mt-3">
+                {viewingVersion && viewingVersion.id !== currentVersion?.id && (
+                  <Alert className="mb-3">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>
+                      Viewing version {viewingVersion.versionNumber} (not current).{' '}
+                      <Button variant="link" className="h-auto p-0" onClick={() => setViewingVersion(undefined)}>
+                        Back to current
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <MarkdownViewer markdown={markdown} workspaceId={workspaceId} />
+              </TabsContent>
+              <TabsContent value="edit" className="mt-3">
+                {editingMarkdown && currentVersion && (
+                  <MarkdownEditor
+                    initialContent={currentVersion.content}
+                    saving={savingEdit}
+                    error={knowledgeError}
+                    onSave={(content, changeSummary) => void saveEdit(content, changeSummary).then((ok) => ok && setEditingMarkdown(false))}
+                    onCancel={() => setEditingMarkdown(false)}
+                  />
+                )}
+              </TabsContent>
+              <TabsContent value="history" className="mt-3">
+                <MarkdownVersionHistory
+                  versions={versions}
+                  onOpen={setViewingVersion}
+                  onRestore={(versionId) => void restoreVersion(versionId)}
+                  restoring={savingEdit}
+                />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       )}
@@ -189,7 +225,7 @@ export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
         classificationFieldsLive={classificationFieldsLive}
       />
 
-      {status !== 'idle' &&
+      {(status !== 'idle' || currentVersion) &&
         (isMobile ? (
           <Tabs defaultValue="research">
             <TabsList>
