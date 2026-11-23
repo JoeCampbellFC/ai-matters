@@ -3,10 +3,9 @@
 # infra/main.bicep). Infra/app-settings/secrets are provisioned separately,
 # once, via that Bicep template -- this pipeline only ever ships code.
 #
-# Before running this pipeline for the first time:
-#   1. Replace azureServiceConnectionName below with your actual service connection name.
-#   2. infra/main.bicep has already been deployed (resource group fm-ai-matters,
-#      App Service fm-ai-matters, F1 Free tier) -- appServiceName below already matches.
+# infra/main.bicep has already been deployed (resource group fm-ai-matters,
+# App Service fm-ai-matters, F1 Free tier); both variables below already
+# match the real Azure DevOps service connection and App Service name.
 
 trigger:
   branches:
@@ -18,9 +17,7 @@ pool:
 
 variables:
   nodeVersion: '22.x'
-  # CHANGE-ME: the Azure DevOps service connection name (Project Settings ->
-  # Service connections) pointing at your Azure subscription/resource group.
-  azureServiceConnectionName: 'CHANGE-ME-service-connection'
+  azureServiceConnectionName: 'ai-matters-azure'
   appServiceName: 'fm-ai-matters'
 
 stages:
