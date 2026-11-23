@@ -26,8 +26,11 @@ param appName string
 @description('Azure region for all resources.')
 param location string = resourceGroup().location
 
-@description('App Service Plan SKU. B1 is the cheapest Linux tier that supports Always On and HTTPS-only.')
+@description('App Service Plan SKU. F1 (Free) has no Always On and sleeps after ~20min idle; B1 (Basic, ~$13/mo) adds Always On and is more resilient for the OAuth flow.')
 param skuName string = 'B1'
+
+// Free/Shared tiers don't support Always On at all -- Azure rejects the deployment if it's set on them.
+var supportsAlwaysOn = !(skuName == 'F1' || skuName == 'D1')
 
 @description('Base URL of the iManage MCP Work connector for your tenant, e.g. https://cloudimanage.com/mcp/work')
 param imanageMcpUrl string
@@ -71,7 +74,7 @@ resource site 'Microsoft.Web/sites@2023-12-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'NODE|22-lts'
-      alwaysOn: true
+      alwaysOn: supportsAlwaysOn
       appCommandLine: 'npm start'
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
