@@ -32,20 +32,21 @@ const {
   getLatestMarkdownArtifact,
   getMarkdownArtifact,
   getProfileRecord,
-  recordClassificationFailure,
+  recordFieldClassificationFailure,
   recordManualCorrection,
   saveMarkdownArtifact,
-  upsertClassification,
+  upsertFieldClassification,
   __resetStoreForTests,
 } = await import('./classificationRepository.js')
 
-function record(overrides: Partial<Parameters<typeof upsertClassification>[0]['record']> = {}) {
+function record(overrides: Partial<Parameters<typeof upsertFieldClassification>[0]['record']> = {}) {
   return {
     id: 'rec-1',
+    fieldId: 'matter_type' as const,
     markdownArtifactId: 'artifact-1',
     markdownHash: 'hash-1',
     status: 'classified' as const,
-    matterTypeId: 'mergers_acquisitions' as const,
+    valueId: 'mergers_acquisitions',
     label: 'Mergers & Acquisitions',
     confidence: 0.9,
     probabilities: [],
@@ -89,49 +90,70 @@ describe('classificationRepository', () => {
     saveMarkdownArtifact({ sessionId: 's1', workspaceId: 'WS-1', researchRunId: 'run-1', markdown: 'v1', markdownHash: 'h1', documentsUsed: 1 })
     expect(getLatestMarkdownArtifact('s2', 'WS-1')).toBeUndefined()
 
-    upsertClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record() })
+    upsertFieldClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record() })
     expect(getProfileRecord('s2', 'WS-1')).toBeUndefined()
   })
 
-  it('records a successful classification as current, pushing any prior current into history', () => {
-    upsertClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record({ id: 'rec-1' }) })
-    upsertClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record({ id: 'rec-2' }) })
+  it('records a successful field classification as current, pushing any prior result for that field into its history', () => {
+    upsertFieldClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record({ id: 'rec-1' }) })
+    upsertFieldClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record({ id: 'rec-2' }) })
 
     const profile = getProfileRecord('s1', 'WS-1')
-    expect(profile?.current?.id).toBe('rec-2')
-    expect(profile?.history.map((r) => r.id)).toEqual(['rec-1'])
+    expect(profile?.fields.matter_type?.id).toBe('rec-2')
+    expect(profile?.history.matter_type?.map((r) => r.id)).toEqual(['rec-1'])
   })
 
-  it('clears any manual override and last error when a fresh classification is recorded', () => {
-    upsertClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record() })
+  it('keeps each field\'s results independent -- classifying one field never disturbs another', () => {
+    upsertFieldClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record({ fieldId: 'matter_type', id: 'rec-mt' }) })
+    upsertFieldClassification({
+      sessionId: 's1',
+      workspaceId: 'WS-1',
+      record: record({ fieldId: 'practice_area', id: 'rec-pa', valueId: 'tax', label: 'Tax' }),
+    })
+
+    const profile = getProfileRecord('s1', 'WS-1')
+    expect(profile?.fields.matter_type?.id).toBe('rec-mt')
+    expect(profile?.fields.practice_area?.id).toBe('rec-pa')
+    expect(profile?.fields.practice_area?.label).toBe('Tax')
+  })
+
+  it('clears a field\'s manual override and last error when a fresh classification for that field is recorded', () => {
+    upsertFieldClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record() })
     recordManualCorrection('s1', 'WS-1', {
-      matterTypeId: 'corporate_advisory',
+      fieldId: 'matter_type',
+      valueId: 'corporate_advisory',
       label: 'Corporate Advisory',
       correctedBy: 'alice',
       correctedAt: new Date().toISOString(),
     })
-    expect(getProfileRecord('s1', 'WS-1')?.override).toBeDefined()
+    expect(getProfileRecord('s1', 'WS-1')?.overrides.matter_type).toBeDefined()
 
-    upsertClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record({ id: 'rec-2' }) })
-    expect(getProfileRecord('s1', 'WS-1')?.override).toBeUndefined()
+    upsertFieldClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record({ id: 'rec-2' }) })
+    expect(getProfileRecord('s1', 'WS-1')?.overrides.matter_type).toBeUndefined()
   })
 
-  it('records a failure without disturbing an existing successful current classification', () => {
-    upsertClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record() })
-    recordClassificationFailure('s1', 'WS-1', undefined, { code: 'decisions_request_error', message: 'boom' })
+  it('records a field failure without disturbing that field\'s (or any other field\'s) existing successful result', () => {
+    upsertFieldClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record({ fieldId: 'matter_type' }) })
+    upsertFieldClassification({
+      sessionId: 's1',
+      workspaceId: 'WS-1',
+      record: record({ fieldId: 'practice_area', id: 'rec-pa', valueId: 'tax', label: 'Tax' }),
+    })
+    recordFieldClassificationFailure('s1', 'WS-1', undefined, 'industry_sector', { code: 'decisions_request_error', message: 'boom' })
 
     const profile = getProfileRecord('s1', 'WS-1')
-    expect(profile?.current?.id).toBe('rec-1')
-    expect(profile?.lastError?.message).toBe('boom')
+    expect(profile?.fields.matter_type?.id).toBe('rec-1')
+    expect(profile?.fields.practice_area?.id).toBe('rec-pa')
+    expect(profile?.lastErrors.industry_sector?.message).toBe('boom')
   })
 
   it('persists across a fresh load (simulating a server restart)', async () => {
     saveMarkdownArtifact({ sessionId: 's1', workspaceId: 'WS-1', researchRunId: 'run-1', markdown: 'v1', markdownHash: 'h1', documentsUsed: 1 })
-    upsertClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record() })
+    upsertFieldClassification({ sessionId: 's1', workspaceId: 'WS-1', record: record() })
 
     vi.resetModules()
     const reloaded = await import('./classificationRepository.js')
     expect(reloaded.getLatestMarkdownArtifact('s1', 'WS-1')?.markdown).toBe('v1')
-    expect(reloaded.getProfileRecord('s1', 'WS-1')?.current?.id).toBe('rec-1')
+    expect(reloaded.getProfileRecord('s1', 'WS-1')?.fields.matter_type?.id).toBe('rec-1')
   })
 })

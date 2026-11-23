@@ -1,7 +1,6 @@
-import { ALL_CLASSIFICATION_CHOICES } from '../matterTypes.js'
+import { ALL_CLASSIFICATION_CHOICES, type MatterTypeChoiceId } from '../matterTypes.js'
 import { statusForChoice } from '../classificationValidator.js'
 import type { ChoiceDecisionAnswer, RefusalDecisionAnswer } from '../decisionsClient.js'
-import type { MatterTypeChoiceId } from '../types.js'
 import { EVAL_CASES, type EvalCase } from './fixtures.js'
 
 export interface EvalResult {
@@ -58,7 +57,7 @@ export async function runEvaluation(classify: ClassifyFn, cases: EvalCase[] = EV
 
     const predicted = CHOICE_IDS.has(answer.choice as MatterTypeChoiceId) ? (answer.choice as MatterTypeChoiceId) : null
     const correct = predicted === evalCase.expected
-    const status = predicted ? statusForChoice(predicted, answer.confidence) : 'needs_review'
+    const status = predicted ? statusForChoice('matter_type', predicted, answer.confidence) : 'needs_review'
     const reviewTriggered = status !== 'classified'
 
     results.push({

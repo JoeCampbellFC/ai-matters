@@ -98,6 +98,9 @@ export type ResearchEventType =
   | 'run_failed'
   | 'run_cancelled'
   | 'classification_started'
+  | 'classification_field_started'
+  | 'classification_field_completed'
+  | 'classification_field_failed'
   | 'classification_completed'
   | 'classification_failed'
   | 'heartbeat'
@@ -145,13 +148,23 @@ export type ResearchEvent =
       error?: { code: string; message: string }
     })
   | (ResearchEventBase & { type: 'classification_started' })
+  | (ResearchEventBase & { type: 'classification_field_started'; fieldId: string; fieldLabel: string })
   | (ResearchEventBase & {
-      type: 'classification_completed'
-      matterTypeId: string | null
+      type: 'classification_field_completed'
+      fieldId: string
+      fieldLabel: string
+      valueId: string | null
       label: string | null
       confidence: number | null
       status: string
     })
+  | (ResearchEventBase & {
+      type: 'classification_field_failed'
+      fieldId: string
+      fieldLabel: string
+      error: { code: string; message: string }
+    })
+  | (ResearchEventBase & { type: 'classification_completed' })
   | (ResearchEventBase & { type: 'classification_failed'; error: { code: string; message: string } })
   | (ResearchEventBase & { type: 'heartbeat' })
 
@@ -172,6 +185,7 @@ export interface RunSnapshot {
 export interface ResearchActivityItem {
   seq: number
   ts: string
-  stage: ResearchStage
+  /** 'classifying' is synthesized client-side from classification_* events, not a real research pipeline stage. */
+  stage: ResearchStage | 'classifying'
   message: string
 }

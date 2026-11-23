@@ -17,7 +17,15 @@ import {
 /** Transient, live-only signal from this run's own SSE stream -- see useMatterProfile.ts for the durable source of truth. */
 export interface ClassificationLiveSignal {
   status: 'classifying' | 'completed' | 'failed'
-  matterTypeId?: string | null
+  error?: { code: string; message: string }
+}
+
+/** Live per-field progress, one entry per classification dimension, keyed by fieldId. */
+export interface ClassificationFieldLiveSignal {
+  fieldId: string
+  fieldLabel: string
+  status: 'classifying' | 'completed' | 'failed'
+  valueId?: string | null
   label?: string | null
   confidence?: number | null
   reviewStatus?: string
@@ -48,8 +56,10 @@ interface MatterResearchState {
   stageDurationsMs: Partial<Record<ResearchStage, number>>
   /** Epoch ms the *current* stage started -- lets the UI tick a live elapsed counter. */
   currentStageStartedAt?: number
-  /** Phase 3: live classification progress pushed onto this same run's event stream. */
+  /** Phase 3: overall live classification progress pushed onto this same run's event stream. */
   classificationLive?: ClassificationLiveSignal
+  /** Phase 3: per-field live classification progress, keyed by fieldId. */
+  classificationFieldsLive: Record<string, ClassificationFieldLiveSignal>
 }
 
 /** Finalizes the outgoing stage's duration using `atTs` as its end time, unless it's still the same stage. */
@@ -90,6 +100,13 @@ const INITIAL_STATE: MatterResearchState = {
   searchQueries: {},
   activity: [],
   stageDurationsMs: {},
+  classificationFieldsLive: {},
+}
+
+/** Appends a synthesized log line to the shared activity feed -- the Terminal doesn't distinguish its source. */
+function pushActivity(state: MatterResearchState, seq: number, ts: string, message: string): ResearchActivityItem[] {
+  const item: ResearchActivityItem = { seq, ts, stage: 'classifying', message }
+  return [...state.activity, item].slice(-MAX_ACTIVITY_ITEMS)
 }
 
 function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterResearchState {
@@ -168,18 +185,46 @@ function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterRes
     case 'run_cancelled':
       return { ...state, ...finalizeStageDuration(state, undefined, event.ts), status: 'cancelled' }
     case 'classification_started':
-      return { ...state, classificationLive: { status: 'classifying' } }
-    case 'classification_completed':
+      return { ...state, classificationLive: { status: 'classifying' }, classificationFieldsLive: {} }
+    case 'classification_field_started':
       return {
         ...state,
-        classificationLive: {
-          status: 'completed',
-          matterTypeId: event.matterTypeId,
-          label: event.label,
-          confidence: event.confidence,
-          reviewStatus: event.status,
+        classificationFieldsLive: {
+          ...state.classificationFieldsLive,
+          [event.fieldId]: { fieldId: event.fieldId, fieldLabel: event.fieldLabel, status: 'classifying' },
         },
+        activity: pushActivity(state, event.seq, event.ts, `Classifying ${event.fieldLabel}…`),
       }
+    case 'classification_field_completed': {
+      const confidenceText = event.confidence !== null ? ` (${Math.round(event.confidence * 100)}%)` : ''
+      return {
+        ...state,
+        classificationFieldsLive: {
+          ...state.classificationFieldsLive,
+          [event.fieldId]: {
+            fieldId: event.fieldId,
+            fieldLabel: event.fieldLabel,
+            status: 'completed',
+            valueId: event.valueId,
+            label: event.label,
+            confidence: event.confidence,
+            reviewStatus: event.status,
+          },
+        },
+        activity: pushActivity(state, event.seq, event.ts, `${event.fieldLabel} classified: ${event.label ?? 'Unclear / Other'}${confidenceText}`),
+      }
+    }
+    case 'classification_field_failed':
+      return {
+        ...state,
+        classificationFieldsLive: {
+          ...state.classificationFieldsLive,
+          [event.fieldId]: { fieldId: event.fieldId, fieldLabel: event.fieldLabel, status: 'failed', error: event.error },
+        },
+        activity: pushActivity(state, event.seq, event.ts, `${event.fieldLabel} classification failed: ${event.error.message}`),
+      }
+    case 'classification_completed':
+      return { ...state, classificationLive: { status: 'completed' } }
     case 'classification_failed':
       return { ...state, classificationLive: { status: 'failed', error: event.error } }
     case 'heartbeat':
@@ -307,6 +352,7 @@ export function useMatterResearch(workspaceId: string) {
     stageDurationsMs: state.stageDurationsMs,
     currentStageStartedAt: state.currentStageStartedAt,
     classificationLive: state.classificationLive,
+    classificationFieldsLive: state.classificationFieldsLive,
     start,
     cancel,
   }

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   classifyMatter,
-  correctMatterType,
+  correctMatterField,
+  fetchClassificationFields,
   fetchMatterProfile,
-  fetchMatterTypeOptions,
   reclassifyMatter,
 } from '@/services/matterProfileApi'
-import type { MatterProfile, MatterTypeOption } from '@/types/matterProfile'
+import type { ClassificationFieldOption, MatterProfile } from '@/types/matterProfile'
 import type { ResearchRunStatus } from '@/types/research'
 import type { ClassificationLiveSignal } from './useMatterResearch'
 
@@ -21,7 +21,7 @@ export function useMatterProfile(
   live: { researchStatus: ResearchRunStatus | 'idle'; classificationLive?: ClassificationLiveSignal },
 ) {
   const [profile, setProfile] = useState<MatterProfile | undefined>()
-  const [matterTypeOptions, setMatterTypeOptions] = useState<MatterTypeOption[]>([])
+  const [fieldOptions, setFieldOptions] = useState<ClassificationFieldOption[]>([])
   const [actionPending, setActionPending] = useState(false)
   const [actionError, setActionError] = useState<string | undefined>()
   const lastHandledLiveStatus = useRef<string | undefined>(undefined)
@@ -53,8 +53,8 @@ export function useMatterProfile(
     if (live.researchStatus === 'succeeded') refresh()
   }, [workspaceId, live.researchStatus, refresh])
 
-  // Refetch again once the live classification signal reaches a terminal state,
-  // so the durable profile (status/confidence/probabilities) catches up promptly.
+  // Refetch again once the live classification batch reaches a terminal state,
+  // so the durable profile (every field's status/confidence/probabilities) catches up promptly.
   useEffect(() => {
     const status = live.classificationLive?.status
     if (status && status !== lastHandledLiveStatus.current && status !== 'classifying') {
@@ -64,8 +64,8 @@ export function useMatterProfile(
   }, [live.classificationLive?.status, refresh])
 
   useEffect(() => {
-    fetchMatterTypeOptions()
-      .then(setMatterTypeOptions)
+    fetchClassificationFields()
+      .then(setFieldOptions)
       .catch(() => undefined)
   }, [])
 
@@ -85,11 +85,11 @@ export function useMatterProfile(
   const retryClassification = useCallback(() => runAction(() => classifyMatter(workspaceId)), [runAction, workspaceId])
   const reclassify = useCallback(() => runAction(() => reclassifyMatter(workspaceId)), [runAction, workspaceId])
   const correct = useCallback(
-    (matterTypeId: string) => runAction(() => correctMatterType(workspaceId, { matterTypeId })),
+    (fieldId: string, valueId: string) => runAction(() => correctMatterField(workspaceId, { fieldId, valueId })),
     [runAction, workspaceId],
   )
 
   const isClassifying = live.classificationLive?.status === 'classifying'
 
-  return { profile, matterTypeOptions, isClassifying, actionPending, actionError, retryClassification, reclassify, correct }
+  return { profile, fieldOptions, isClassifying, actionPending, actionError, retryClassification, reclassify, correct }
 }

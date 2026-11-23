@@ -1,23 +1,26 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, TerminalIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useMatterResearch } from '@/hooks/useMatterResearch'
 import { fetchResearchMarkdown } from '@/services/matterResearchApi'
 import { MatterProfileCard } from '@/components/matterProfile/MatterProfileCard'
+import type { Workspace } from '@/types/workspace'
 import { CoverageSummary } from './CoverageSummary'
 import { GenerateSummaryButton } from './GenerateSummaryButton'
 import { MarkdownViewer } from './MarkdownViewer'
-import { ResearchActivityFeed } from './ResearchActivityFeed'
 import { ResearchDocumentTable } from './ResearchDocumentTable'
 import { ResearchSkillCard } from './ResearchSkillCard'
 import { ResearchStageTimeline } from './ResearchStageTimeline'
+import { ResearchTerminal } from './ResearchTerminal'
 
-export function MatterKnowledgePanel({ workspaceId, client }: { workspaceId: string; client?: string }) {
+export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
+  const workspaceId = workspace.id
   const {
     runId,
     status,
@@ -33,6 +36,7 @@ export function MatterKnowledgePanel({ workspaceId, client }: { workspaceId: str
     iteration,
     maxStageIndexReached,
     classificationLive,
+    classificationFieldsLive,
     start,
     cancel,
   } = useMatterResearch(workspaceId)
@@ -76,7 +80,6 @@ export function MatterKnowledgePanel({ workspaceId, client }: { workspaceId: str
             iteration={iteration}
             maxStageIndexReached={maxStageIndexReached}
           />
-          <ResearchActivityFeed items={activity} />
         </CardContent>
       </Card>
       {coverage && (
@@ -133,6 +136,25 @@ export function MatterKnowledgePanel({ workspaceId, client }: { workspaceId: str
             Cancel
           </Button>
         )}
+        {status !== 'idle' && (
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline">
+                <TerminalIcon className="size-4" />
+                View Terminal
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-[60vh]">
+              <SheetHeader>
+                <SheetTitle>Terminal</SheetTitle>
+                <SheetDescription>Live log of what the agent is doing, in order.</SheetDescription>
+              </SheetHeader>
+              <div className="flex-1 overflow-hidden px-4 pb-4">
+                <ResearchTerminal items={activity} className="h-full" scrollClassName="flex-1" />
+              </div>
+            </SheetContent>
+          </Sheet>
+        )}
       </div>
 
       {status === 'failed' && error && (
@@ -150,7 +172,17 @@ export function MatterKnowledgePanel({ workspaceId, client }: { workspaceId: str
         </Alert>
       )}
 
-      <MatterProfileCard workspaceId={workspaceId} client={client} researchStatus={status} classificationLive={classificationLive} />
+      <MatterProfileCard
+        workspaceId={workspaceId}
+        workspaceName={workspace.name}
+        client={workspace.client}
+        matter={workspace.matter}
+        owner={workspace.owner}
+        lastModified={workspace.lastModified}
+        researchStatus={status}
+        classificationLive={classificationLive}
+        classificationFieldsLive={classificationFieldsLive}
+      />
 
       {status !== 'idle' &&
         (isMobile ? (

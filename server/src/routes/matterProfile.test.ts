@@ -29,12 +29,25 @@ function buildApp() {
   return app
 }
 
+function fakeField(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    fieldId: 'matter_type',
+    fieldLabel: 'Matter Type',
+    valueId: 'mergers_acquisitions',
+    label: 'Mergers & Acquisitions',
+    confidence: 0.9,
+    status: 'classified',
+    probabilities: [],
+    ...overrides,
+  }
+}
+
 function fakeProfile(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     workspaceId: 'WS-1',
     workspaceName: 'Acme Matter',
-    matterType: { id: 'mergers_acquisitions', label: 'Mergers & Acquisitions', confidence: 0.9, status: 'classified' },
     outdated: false,
+    fields: [fakeField()],
     ...overrides,
   }
 }
@@ -43,14 +56,16 @@ beforeEach(() => {
   for (const mockFn of Object.values(serviceMocks)) mockFn.mockReset()
 })
 
-describe('GET /api/matters/matter-types', () => {
-  it('returns the 20 official matter types (id/label only)', async () => {
-    const res = await request(buildApp()).get('/api/matters/matter-types')
+describe('GET /api/matters/classification-fields', () => {
+  it('returns all 16 classification fields (id/label choices only)', async () => {
+    const res = await request(buildApp()).get('/api/matters/classification-fields')
     expect(res.status).toBe(200)
-    expect(res.body.matterTypes).toHaveLength(20)
-    expect(res.body.matterTypes[0]).toHaveProperty('id')
-    expect(res.body.matterTypes[0]).toHaveProperty('label')
-    expect(res.body.matterTypes[0]).not.toHaveProperty('description')
+    expect(res.body.fields).toHaveLength(16)
+    expect(res.body.fields[0]).toHaveProperty('fieldId')
+    expect(res.body.fields[0]).toHaveProperty('label')
+    expect(res.body.fields[0].choices[0]).toHaveProperty('id')
+    expect(res.body.fields[0].choices[0]).toHaveProperty('label')
+    expect(res.body.fields[0].choices[0]).not.toHaveProperty('description')
   })
 })
 
@@ -66,7 +81,7 @@ describe('GET /api/matters/:workspaceId/profile', () => {
     serviceMocks.toMatterProfile.mockReturnValue(fakeProfile())
     const res = await request(buildApp()).get('/api/matters/WS-1/profile')
     expect(res.status).toBe(200)
-    expect(res.body.matterType.id).toBe('mergers_acquisitions')
+    expect(res.body.fields[0].valueId).toBe('mergers_acquisitions')
     expect(serviceMocks.toMatterProfile).toHaveBeenCalledWith('test-session', 'WS-1')
   })
 })
@@ -76,7 +91,7 @@ describe('POST /api/matters/:workspaceId/classify and /reclassify', () => {
     serviceMocks.reclassifyLatestArtifact.mockResolvedValue(fakeProfile())
     const res = await request(buildApp()).post('/api/matters/WS-1/classify')
     expect(res.status).toBe(202)
-    expect(res.body.matterType.id).toBe('mergers_acquisitions')
+    expect(res.body.fields[0].valueId).toBe('mergers_acquisitions')
   })
 
   it('classify: maps "no completed Markdown yet" to 409', async () => {
@@ -87,10 +102,10 @@ describe('POST /api/matters/:workspaceId/classify and /reclassify', () => {
   })
 
   it('reclassify: reruns against the existing Markdown, never Phase 2 research, and returns 202', async () => {
-    serviceMocks.reclassifyLatestArtifact.mockResolvedValue(fakeProfile({ matterType: { id: 'tax', label: 'Tax', confidence: 0.8, status: 'classified' } }))
+    serviceMocks.reclassifyLatestArtifact.mockResolvedValue(fakeProfile({ fields: [fakeField({ valueId: 'tax', label: 'Tax' })] }))
     const res = await request(buildApp()).post('/api/matters/WS-1/reclassify')
     expect(res.status).toBe(202)
-    expect(res.body.matterType.id).toBe('tax')
+    expect(res.body.fields[0].valueId).toBe('tax')
     expect(serviceMocks.reclassifyLatestArtifact).toHaveBeenCalledWith('test-session', 'WS-1')
   })
 })
@@ -98,13 +113,16 @@ describe('POST /api/matters/:workspaceId/classify and /reclassify', () => {
 describe('PATCH /api/matters/:workspaceId/profile', () => {
   it('records a manual correction and returns the updated profile', async () => {
     serviceMocks.recordManualClassificationCorrection.mockReturnValue(
-      fakeProfile({ matterType: { id: 'corporate_advisory', label: 'Corporate Advisory', confidence: 0.9, status: 'classified' } }),
+      fakeProfile({ fields: [fakeField({ valueId: 'corporate_advisory', label: 'Corporate Advisory' })] }),
     )
-    const res = await request(buildApp()).patch('/api/matters/WS-1/profile').send({ matterTypeId: 'corporate_advisory', correctedBy: 'alice' })
+    const res = await request(buildApp())
+      .patch('/api/matters/WS-1/profile')
+      .send({ fieldId: 'matter_type', valueId: 'corporate_advisory', correctedBy: 'alice' })
     expect(res.status).toBe(200)
-    expect(res.body.matterType.id).toBe('corporate_advisory')
+    expect(res.body.fields[0].valueId).toBe('corporate_advisory')
     expect(serviceMocks.recordManualClassificationCorrection).toHaveBeenCalledWith('test-session', 'WS-1', {
-      matterTypeId: 'corporate_advisory',
+      fieldId: 'matter_type',
+      valueId: 'corporate_advisory',
       correctedBy: 'alice',
     })
   })
@@ -113,24 +131,27 @@ describe('PATCH /api/matters/:workspaceId/profile', () => {
     serviceMocks.recordManualClassificationCorrection.mockImplementation(() => {
       throw new MatterProfileNotFoundError()
     })
-    const res = await request(buildApp()).patch('/api/matters/WS-1/profile').send({ matterTypeId: 'tax', correctedBy: 'alice' })
+    const res = await request(buildApp()).patch('/api/matters/WS-1/profile').send({ fieldId: 'matter_type', valueId: 'tax', correctedBy: 'alice' })
     expect(res.status).toBe(404)
   })
 
-  it('returns 400 when the matter type id is invalid', async () => {
+  it('returns 400 when the value id is invalid', async () => {
     serviceMocks.recordManualClassificationCorrection.mockImplementation(() => {
-      throw new z.ZodError([{ code: 'custom', message: 'Unrecognized matter type id.', path: ['matterTypeId'] }])
+      throw new z.ZodError([{ code: 'custom', message: 'Unrecognized value for this classification field.', path: ['valueId'] }])
     })
-    const res = await request(buildApp()).patch('/api/matters/WS-1/profile').send({ matterTypeId: 'not_real', correctedBy: 'alice' })
+    const res = await request(buildApp())
+      .patch('/api/matters/WS-1/profile')
+      .send({ fieldId: 'matter_type', valueId: 'not_real', correctedBy: 'alice' })
     expect(res.status).toBe(400)
     expect(res.body.error.code).toBe('invalid_request')
   })
 
   it('defaults correctedBy to a generic label when not supplied', async () => {
     serviceMocks.recordManualClassificationCorrection.mockReturnValue(fakeProfile())
-    await request(buildApp()).patch('/api/matters/WS-1/profile').send({ matterTypeId: 'tax' })
+    await request(buildApp()).patch('/api/matters/WS-1/profile').send({ fieldId: 'matter_type', valueId: 'tax' })
     expect(serviceMocks.recordManualClassificationCorrection).toHaveBeenCalledWith('test-session', 'WS-1', {
-      matterTypeId: 'tax',
+      fieldId: 'matter_type',
+      valueId: 'tax',
       correctedBy: 'current user',
     })
   })

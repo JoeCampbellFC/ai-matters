@@ -181,14 +181,19 @@ function triggerClassification(run: ResearchRunRecord, workspaceName: string | u
     },
     {
       onStarted: () => pushEvent(run, { type: 'classification_started' }),
-      onCompleted: (profile) =>
+      onFieldStarted: (fieldId, fieldLabel) => pushEvent(run, { type: 'classification_field_started', fieldId, fieldLabel }),
+      onFieldCompleted: (field) =>
         pushEvent(run, {
-          type: 'classification_completed',
-          matterTypeId: profile.matterType.id,
-          label: profile.matterType.label,
-          confidence: profile.matterType.confidence,
-          status: profile.matterType.status,
+          type: 'classification_field_completed',
+          fieldId: field.fieldId,
+          fieldLabel: field.fieldLabel,
+          valueId: field.valueId,
+          label: field.label,
+          confidence: field.confidence,
+          status: field.status,
         }),
+      onFieldFailed: (fieldId, fieldLabel, error) => pushEvent(run, { type: 'classification_field_failed', fieldId, fieldLabel, error }),
+      onCompleted: () => pushEvent(run, { type: 'classification_completed' }),
       onFailed: (error) => pushEvent(run, { type: 'classification_failed', error }),
     },
   ).catch((error: unknown) => {

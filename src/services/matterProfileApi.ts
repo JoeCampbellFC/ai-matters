@@ -1,9 +1,9 @@
 import { ApiError, apiRequest } from './api'
-import type { MatterProfile, MatterTypeOption } from '@/types/matterProfile'
+import type { ClassificationFieldOption, MatterProfile } from '@/types/matterProfile'
 
-export async function fetchMatterTypeOptions(): Promise<MatterTypeOption[]> {
-  const result = await apiRequest<{ matterTypes: MatterTypeOption[] }>('/matters/matter-types')
-  return result.matterTypes
+export async function fetchClassificationFields(): Promise<ClassificationFieldOption[]> {
+  const result = await apiRequest<{ fields: ClassificationFieldOption[] }>('/matters/classification-fields')
+  return result.fields
 }
 
 /** Returns undefined (not an error) when no profile has been classified yet for this workspace. */
@@ -21,14 +21,14 @@ export async function classifyMatter(workspaceId: string): Promise<MatterProfile
   return apiRequest<MatterProfile>(`/matters/${encodeURIComponent(workspaceId)}/classify`, { method: 'POST' })
 }
 
-/** Explicit user-initiated re-run of the Decisions API against the existing Matter Knowledge File. */
+/** Explicit user-initiated re-run of the Decisions API (every field) against the existing Matter Knowledge File. */
 export async function reclassifyMatter(workspaceId: string): Promise<MatterProfile> {
   return apiRequest<MatterProfile>(`/matters/${encodeURIComponent(workspaceId)}/reclassify`, { method: 'POST' })
 }
 
-export async function correctMatterType(
+export async function correctMatterField(
   workspaceId: string,
-  input: { matterTypeId: string; correctedBy?: string },
+  input: { fieldId: string; valueId: string; correctedBy?: string },
 ): Promise<MatterProfile> {
   return apiRequest<MatterProfile>(`/matters/${encodeURIComponent(workspaceId)}/profile`, {
     method: 'PATCH',

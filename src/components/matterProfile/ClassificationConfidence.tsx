@@ -3,6 +3,10 @@ import { cn } from '@/lib/utils'
 import type { ClassificationStatus } from '@/types/matterProfile'
 
 const STATUS_CONFIG: Record<ClassificationStatus, { label: string; className: string }> = {
+  pending: {
+    label: 'Pending',
+    className: 'border-border text-muted-foreground',
+  },
   classified: {
     label: 'Classified',
     className: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-400',

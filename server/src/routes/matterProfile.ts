@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { listMatterTypeOptions } from '../classification/matterTypes.js'
+import { listClassificationFieldOptions } from '../classification/classificationFields.js'
 import { MatterProfileNotFoundError } from '../classification/errors.js'
 import {
   recordManualClassificationCorrection,
@@ -10,12 +10,12 @@ import {
 export const matterProfileRouter = Router()
 
 /**
- * id/label pairs only, for the manual-correction Select -- the taxonomy's
- * descriptions and classification guidance are prompt content and never
- * leave the server.
+ * id/label pairs only, per field, for the manual-correction Selects -- each
+ * field's taxonomy descriptions and classification guidance are prompt
+ * content and never leave the server.
  */
-matterProfileRouter.get('/matter-types', (_req, res) => {
-  res.json({ matterTypes: listMatterTypeOptions() })
+matterProfileRouter.get('/classification-fields', (_req, res) => {
+  res.json({ fields: listClassificationFieldOptions() })
 })
 
 matterProfileRouter.get('/:workspaceId/profile', (req, res, next) => {
@@ -29,9 +29,9 @@ matterProfileRouter.get('/:workspaceId/profile', (req, res, next) => {
 })
 
 /**
- * Classifies the latest completed Matter Knowledge artifact for this
- * workspace. In ordinary operation this never needs to be called -- a
- * successful research run triggers classification automatically
+ * Classifies every field against the latest completed Matter Knowledge
+ * artifact for this workspace. In ordinary operation this never needs to be
+ * called -- a successful research run triggers classification automatically
  * (runManager.ts) -- this exists for retrying after a failure, and behaves
  * identically to /reclassify (re-running Decisions on the existing
  * Markdown, never Phase 2 research).
@@ -56,9 +56,10 @@ matterProfileRouter.post('/:workspaceId/reclassify', async (req, res, next) => {
 
 matterProfileRouter.patch('/:workspaceId/profile', (req, res, next) => {
   try {
-    const body = req.body as { matterTypeId?: unknown; correctedBy?: unknown }
+    const body = req.body as { fieldId?: unknown; valueId?: unknown; correctedBy?: unknown }
     const profile = recordManualClassificationCorrection(req.sessionID, req.params.workspaceId!, {
-      matterTypeId: typeof body.matterTypeId === 'string' ? body.matterTypeId : '',
+      fieldId: typeof body.fieldId === 'string' ? body.fieldId : '',
+      valueId: typeof body.valueId === 'string' ? body.valueId : '',
       correctedBy: typeof body.correctedBy === 'string' && body.correctedBy.trim() ? body.correctedBy : 'current user',
     })
     res.json(profile)

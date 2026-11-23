@@ -1,153 +1,159 @@
-import { useState } from 'react'
-import { AlertCircle, Loader2, RotateCcw } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AlertCircle, RotateCcw } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import type { ClassificationLiveSignal } from '@/hooks/useMatterResearch'
+import type { ClassificationFieldLiveSignal, ClassificationLiveSignal } from '@/hooks/useMatterResearch'
 import { useMatterProfile } from '@/hooks/useMatterProfile'
 import type { ResearchRunStatus } from '@/types/research'
-import { AlternativeCategories } from './AlternativeCategories'
-import { ClassificationSource } from './ClassificationSource'
-import { ClassificationStatusBadge, ConfidenceLabel } from './ClassificationConfidence'
+import { ClassificationFieldsTable, buildClassificationRows } from './ClassificationFieldsTable'
 
 /**
- * Only ever rendered once research has succeeded (gated by the caller) --
- * never shows an empty/default profile before a completed Matter Knowledge
- * File exists. Classification itself is triggered automatically server-side;
- * this component is read/correct/retry only, never the thing that starts it.
+ * The first, full-width panel on a workspace's matter page: iManage-sourced
+ * fields (always available) plus all 16 Decisions API classification
+ * dimensions, each of which stays blank -- field name shown, value empty --
+ * until its own independent classification call completes. One row per
+ * field doubles as both the live "agent status" (updates as each field's
+ * call starts/finishes) and the final result.
  */
 export function MatterProfileCard({
   workspaceId,
+  workspaceName,
   client,
+  matter,
+  owner,
+  lastModified,
   researchStatus,
   classificationLive,
+  classificationFieldsLive,
 }: {
   workspaceId: string
+  workspaceName: string
   client?: string
+  matter?: string
+  owner?: string
+  lastModified?: string
   researchStatus: ResearchRunStatus | 'idle'
   classificationLive?: ClassificationLiveSignal
+  classificationFieldsLive: Record<string, ClassificationFieldLiveSignal>
 }) {
-  const { profile, matterTypeOptions, isClassifying, actionPending, actionError, retryClassification, reclassify, correct } =
-    useMatterProfile(workspaceId, { researchStatus, classificationLive })
-  const [correctionValue, setCorrectionValue] = useState<string | undefined>()
+  const { profile, fieldOptions, isClassifying, actionPending, actionError, reclassify, correct } = useMatterProfile(workspaceId, {
+    researchStatus,
+    classificationLive,
+  })
+  const [correctionFieldId, setCorrectionFieldId] = useState<string | undefined>()
+  const [correctionValueId, setCorrectionValueId] = useState<string | undefined>()
 
-  if (researchStatus !== 'succeeded') return null
-  if (!profile && !isClassifying) return null
-
-  const aiSuggestion = profile?.classification?.probabilities.reduce<{ id: string; label: string; probability: number } | undefined>(
-    (best, p) => (!best || p.probability > best.probability ? p : best),
-    undefined,
+  const rows = useMemo(
+    () => buildClassificationRows(fieldOptions, profile?.fields, classificationFieldsLive),
+    [fieldOptions, profile?.fields, classificationFieldsLive],
   )
+
+  const correctionChoices = fieldOptions.find((f) => f.fieldId === correctionFieldId)?.choices ?? []
+
+  const METADATA: Array<{ label: string; value?: string }> = [
+    { label: 'Workspace Name', value: workspaceName },
+    { label: 'Client', value: client },
+    { label: 'Matter', value: matter },
+    { label: 'Owner', value: owner },
+    { label: 'Last Modified', value: lastModified },
+    { label: 'Workspace ID', value: workspaceId },
+    { label: 'Source', value: 'iManage Work' },
+  ]
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Matter Profile</CardTitle>
-        <CardDescription>
-          {profile?.workspaceName ?? workspaceId}
-          {client ? ` · ${client}` : ''} · Workspace ID: {workspaceId} · Source: iManage Work
-        </CardDescription>
+        <CardDescription>Workspace details and AI-classified matter fields.</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {isClassifying && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Classifying matter using GPT-6 Luna…
-          </div>
-        )}
+      <CardContent className="flex flex-col gap-5">
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+          {METADATA.filter((field) => field.value).map((field) => (
+            <div key={field.label}>
+              <dt className="text-xs text-muted-foreground">{field.label}</dt>
+              <dd className="text-sm font-medium text-foreground">{field.value}</dd>
+            </div>
+          ))}
+        </dl>
 
-        {profile && (
-          <>
-            {profile.outdated && (
-              <Alert>
-                <AlertCircle className="size-4" />
-                <AlertDescription>
-                  The Matter Knowledge File has been regenerated since this classification ran. Reclassify to bring it up to date.
-                </AlertDescription>
-              </Alert>
-            )}
+        <div className="flex flex-col gap-3 border-t border-border pt-4">
+          {isClassifying && (
+            <p className="text-sm text-muted-foreground">Classifying this matter using GPT-6 Luna — one call per field below…</p>
+          )}
 
-            {profile.matterType.status === 'failed' ? (
-              <Alert variant="destructive">
-                <AlertCircle className="size-4" />
-                <AlertDescription>
-                  Classification failed{profile.error ? `: ${profile.error.message}` : '.'} The Matter Knowledge File is still available.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-lg font-semibold text-foreground">{profile.matterType.label ?? 'Unclear / Other'}</span>
-                  <ClassificationStatusBadge status={profile.matterType.status} />
-                  {profile.override && <Badge variant="outline">User-confirmed</Badge>}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Confidence: <ConfidenceLabel confidence={profile.matterType.confidence} />
-                </div>
-                {profile.override && aiSuggestion && (
-                  <p className="text-xs text-muted-foreground">
-                    AI originally suggested <span className="font-medium text-foreground">{aiSuggestion.label}</span> (
-                    {Math.round(aiSuggestion.probability * 100)}%); confirmed as{' '}
-                    <span className="font-medium text-foreground">{profile.override.label}</span> by {profile.override.correctedBy} on{' '}
-                    {new Date(profile.override.correctedAt).toLocaleDateString()}.
-                  </p>
-                )}
-              </div>
-            )}
+          {profile?.outdated && (
+            <Alert>
+              <AlertCircle className="size-4" />
+              <AlertDescription>
+                The Matter Knowledge File has been regenerated since this classification ran. Reclassify to bring it up to date.
+              </AlertDescription>
+            </Alert>
+          )}
 
-            {profile.classification && (
-              <AlternativeCategories probabilities={profile.classification.probabilities} selectedId={profile.matterType.id} />
-            )}
+          <ClassificationFieldsTable rows={rows} />
 
-            <ClassificationSource profile={profile} />
-
+          {profile && (
             <div className="flex flex-wrap items-center gap-2">
-              {profile.matterType.status === 'failed' ? (
-                <Button size="sm" variant="outline" disabled={actionPending} onClick={() => void retryClassification()}>
-                  <RotateCcw className="size-3.5" />
-                  Retry Classification
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" disabled={actionPending} onClick={() => void reclassify()}>
-                  <RotateCcw className="size-3.5" />
-                  Reclassify
-                </Button>
-              )}
+              <Button size="sm" variant="outline" disabled={actionPending} onClick={() => void reclassify()}>
+                <RotateCcw className="size-3.5" />
+                Reclassify
+              </Button>
 
-              <Select value={correctionValue} onValueChange={setCorrectionValue}>
-                <SelectTrigger size="sm" className="w-56">
-                  <SelectValue placeholder="Correct matter type…" />
+              <Select
+                value={correctionFieldId}
+                onValueChange={(value) => {
+                  setCorrectionFieldId(value)
+                  setCorrectionValueId(undefined)
+                }}
+              >
+                <SelectTrigger size="sm" className="w-48">
+                  <SelectValue placeholder="Correct a field…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {matterTypeOptions.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>
+                  {fieldOptions.map((option) => (
+                    <SelectItem key={option.fieldId} value={option.fieldId}>
                       {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
+              <Select value={correctionValueId} onValueChange={setCorrectionValueId} disabled={!correctionFieldId}>
+                <SelectTrigger size="sm" className="w-56">
+                  <SelectValue placeholder="New value…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {correctionChoices.map((choice) => (
+                    <SelectItem key={choice.id} value={choice.id}>
+                      {choice.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Button
                 size="sm"
-                disabled={!correctionValue || actionPending}
+                disabled={!correctionFieldId || !correctionValueId || actionPending}
                 onClick={() => {
-                  if (correctionValue) void correct(correctionValue)
-                  setCorrectionValue(undefined)
+                  if (correctionFieldId && correctionValueId) void correct(correctionFieldId, correctionValueId)
+                  setCorrectionFieldId(undefined)
+                  setCorrectionValueId(undefined)
                 }}
               >
                 Save Correction
               </Button>
             </div>
+          )}
 
-            {actionError && (
-              <Alert variant="destructive">
-                <AlertCircle className="size-4" />
-                <AlertDescription>{actionError}</AlertDescription>
-              </Alert>
-            )}
-          </>
-        )}
+          {actionError && (
+            <Alert variant="destructive">
+              <AlertCircle className="size-4" />
+              <AlertDescription>{actionError}</AlertDescription>
+            </Alert>
+          )}
+        </div>
       </CardContent>
     </Card>
   )

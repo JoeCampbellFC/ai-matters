@@ -1,9 +1,43 @@
-export type { MatterTypeChoiceId } from './matterTypes.js'
-import type { MatterTypeChoiceId } from './matterTypes.js'
+export type { ClassificationFieldId } from './classificationFields.js'
+import type { ClassificationFieldId } from './classificationFields.js'
 
 export type ClassificationInputMode = 'full' | 'reduced'
 
-export type ClassificationStatus = 'classified' | 'review_recommended' | 'needs_review' | 'failed'
+export type ClassificationStatus = 'pending' | 'classified' | 'review_recommended' | 'needs_review' | 'failed'
+
+export interface ClassificationProbability {
+  id: string
+  label: string
+  probability: number
+}
+
+/** One Decisions API call's result for one field against one specific MarkdownArtifact. */
+export interface ClassificationRecord {
+  id: string
+  fieldId: ClassificationFieldId
+  markdownArtifactId: string
+  markdownHash: string
+  status: ClassificationStatus
+  valueId: string | null
+  label: string | null
+  confidence: number | null
+  probabilities: ClassificationProbability[]
+  model: string
+  deploymentName: string
+  taxonomyVersion: string
+  inputMode: ClassificationInputMode
+  classifiedAt: string
+  error?: { code: string; message: string }
+}
+
+/** A user's explicit correction for one field, layered on top of (never replacing) the AI result. */
+export interface ManualCorrection {
+  fieldId: ClassificationFieldId
+  valueId: string
+  label: string
+  correctedBy: string
+  correctedAt: string
+}
 
 /** A completed Matter Knowledge Markdown snapshot, durable and independent of the in-memory research run that produced it. */
 export interface MarkdownArtifact {
@@ -20,69 +54,40 @@ export interface MarkdownArtifact {
   createdAt: string
 }
 
-export interface MatterTypeProbability {
-  id: MatterTypeChoiceId
-  label: string
-  probability: number
-}
-
-/** One Decisions API call's result against one specific MarkdownArtifact. */
-export interface ClassificationRecord {
-  id: string
-  markdownArtifactId: string
-  markdownHash: string
-  status: ClassificationStatus
-  matterTypeId: MatterTypeChoiceId | null
-  label: string | null
-  confidence: number | null
-  probabilities: MatterTypeProbability[]
-  model: string
-  deploymentName: string
-  taxonomyVersion: string
-  inputMode: ClassificationInputMode
-  classifiedAt: string
-  error?: { code: string; message: string }
-}
-
-/** A user's explicit correction, layered on top of (never replacing) the AI result. */
-export interface ManualCorrection {
-  matterTypeId: MatterTypeChoiceId
-  label: string
-  correctedBy: string
-  correctedAt: string
-}
-
 /** Durable, per session+workspace record -- what classificationRepository.ts persists. */
 export interface MatterProfileRecord {
   sessionId: string
   workspaceId: string
   workspaceName?: string
-  current?: ClassificationRecord
-  /** Prior classifications, retained for audit once superseded by a newer artifact. */
-  history: ClassificationRecord[]
-  override?: ManualCorrection
+  /** Keyed by fieldId -- the current classification result for each field classified so far. */
+  fields: Partial<Record<ClassificationFieldId, ClassificationRecord>>
+  /** Keyed by fieldId -- prior classifications, retained for audit once superseded by a newer artifact. */
+  history: Partial<Record<ClassificationFieldId, ClassificationRecord[]>>
+  /** Keyed by fieldId -- manual overrides, independent per field. */
+  overrides: Partial<Record<ClassificationFieldId, ManualCorrection>>
+  /** Keyed by fieldId -- most recent failed attempt, kept only until the next successful classification of that field. */
+  lastErrors: Partial<Record<ClassificationFieldId, { code: string; message: string; at: string }>>
   updatedAt: string
+}
+
+/** API-facing projection of a single field's classification state. */
+export interface MatterProfileField {
+  fieldId: ClassificationFieldId
+  fieldLabel: string
+  valueId: string | null
+  label: string | null
+  confidence: number | null
+  status: ClassificationStatus
+  probabilities: ClassificationProbability[]
+  override?: ManualCorrection
+  error?: { code: string; message: string }
 }
 
 /** API-facing projection of a MatterProfileRecord -- never exposes other sessions' data or raw Markdown. */
 export interface MatterProfile {
   workspaceId: string
   workspaceName?: string
-  matterType: {
-    id: MatterTypeChoiceId | null
-    label: string | null
-    confidence: number | null
-    status: ClassificationStatus
-  }
-  classification?: {
-    model: string
-    deploymentName: string
-    method: 'azure-decisions-api'
-    classifiedAt: string
-    taxonomyVersion: string
-    probabilities: MatterTypeProbability[]
-    inputMode: ClassificationInputMode
-  }
+  outdated: boolean
   source?: {
     researchRunId: string
     markdownArtifactId: string
@@ -90,9 +95,6 @@ export interface MatterProfile {
     markdownHash: string
     documentsUsed: number
   }
-  override?: ManualCorrection
-  outdated: boolean
-  error?: { code: string; message: string }
+  /** One entry per classification dimension, in CLASSIFICATION_FIELDS order. */
+  fields: MatterProfileField[]
 }
-
-export type ClassificationEventType = 'classification_started' | 'classification_completed' | 'classification_failed'
