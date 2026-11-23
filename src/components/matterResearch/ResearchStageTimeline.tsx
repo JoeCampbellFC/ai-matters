@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, Circle, CircleSlash2, Loader2, RotateCcw, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import type { ClassificationLiveSignal } from '@/hooks/useMatterResearch'
 import { RESEARCH_STAGE_ORDER, type ResearchRunStatus, type ResearchStage, type SearchQueryItem, type SearchQueryStatus } from '@/types/research'
 
 const STAGE_LABELS: Record<ResearchStage, string> = {
@@ -59,6 +60,13 @@ function formatDuration(ms: number): string {
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
   return `${minutes}m ${seconds}s`
+}
+
+function classificationStepStatus(live: ClassificationLiveSignal | undefined): StepStatus {
+  if (!live) return 'pending'
+  if (live.status === 'classifying') return 'running'
+  if (live.status === 'completed') return 'completed'
+  return 'failed'
 }
 
 function DurationPill({ ms }: { ms?: number }) {
@@ -121,6 +129,9 @@ export function ResearchStageTimeline({
   searchQueries,
   iteration,
   maxStageIndexReached,
+  classificationLive,
+  classificationStartedAt,
+  classificationDurationMs,
 }: {
   stage?: ResearchStage
   status: ResearchRunStatus | 'idle'
@@ -131,14 +142,17 @@ export function ResearchStageTimeline({
   iteration: number
   /** The furthest stage index this run has ever reached -- see useMatterResearch. */
   maxStageIndexReached: number
+  classificationLive?: ClassificationLiveSignal
+  classificationStartedAt?: number
+  classificationDurationMs?: number
 }) {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
-    if (status !== 'running') return
+    if (status !== 'running' && classificationLive?.status !== 'classifying') return
     const interval = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(interval)
-  }, [status])
+  }, [status, classificationLive?.status])
 
   const currentIndex = stage ? RESEARCH_STAGE_ORDER.indexOf(stage) : -1
   const finalStatus: StepStatus =
@@ -183,6 +197,27 @@ export function ResearchStageTimeline({
             Completed
           </span>
         </li>
+        {(() => {
+          const st = classificationStepStatus(classificationLive)
+          const durationMs =
+            st === 'running' && classificationStartedAt !== undefined ? now - classificationStartedAt : classificationDurationMs
+          return (
+            <li className="flex items-center gap-2.5 text-sm">
+              <StepIcon status={st} />
+              <span
+                className={cn(
+                  st === 'pending' && 'text-muted-foreground',
+                  st === 'running' && 'font-medium text-foreground',
+                  st === 'completed' && 'text-foreground',
+                  st === 'failed' && 'text-destructive',
+                )}
+              >
+                Classify Matter Fields
+              </span>
+              <DurationPill ms={durationMs} />
+            </li>
+          )
+        })()}
       </ol>
     </div>
   )

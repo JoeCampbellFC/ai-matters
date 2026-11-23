@@ -37,6 +37,8 @@ export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
     maxStageIndexReached,
     classificationLive,
     classificationFieldsLive,
+    classificationStartedAt,
+    classificationDurationMs,
     start,
     cancel,
   } = useMatterResearch(workspaceId)
@@ -79,6 +81,9 @@ export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
             searchQueries={searchQueries}
             iteration={iteration}
             maxStageIndexReached={maxStageIndexReached}
+            classificationLive={classificationLive}
+            classificationStartedAt={classificationStartedAt}
+            classificationDurationMs={classificationDurationMs}
           />
         </CardContent>
       </Card>

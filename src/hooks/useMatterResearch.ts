@@ -60,6 +60,10 @@ interface MatterResearchState {
   classificationLive?: ClassificationLiveSignal
   /** Phase 3: per-field live classification progress, keyed by fieldId. */
   classificationFieldsLive: Record<string, ClassificationFieldLiveSignal>
+  /** Epoch ms classification_started fired -- lets the UI tick a live elapsed counter for the classification step. */
+  classificationStartedAt?: number
+  /** Frozen once classification_completed/failed fires. */
+  classificationDurationMs?: number
 }
 
 /** Finalizes the outgoing stage's duration using `atTs` as its end time, unless it's still the same stage. */
@@ -185,7 +189,13 @@ function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterRes
     case 'run_cancelled':
       return { ...state, ...finalizeStageDuration(state, undefined, event.ts), status: 'cancelled' }
     case 'classification_started':
-      return { ...state, classificationLive: { status: 'classifying' }, classificationFieldsLive: {} }
+      return {
+        ...state,
+        classificationLive: { status: 'classifying' },
+        classificationFieldsLive: {},
+        classificationStartedAt: new Date(event.ts).getTime(),
+        classificationDurationMs: undefined,
+      }
     case 'classification_field_started':
       return {
         ...state,
@@ -224,9 +234,19 @@ function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterRes
         activity: pushActivity(state, event.seq, event.ts, `${event.fieldLabel} classification failed: ${event.error.message}`),
       }
     case 'classification_completed':
-      return { ...state, classificationLive: { status: 'completed' } }
+      return {
+        ...state,
+        classificationLive: { status: 'completed' },
+        classificationDurationMs:
+          state.classificationStartedAt !== undefined ? new Date(event.ts).getTime() - state.classificationStartedAt : undefined,
+      }
     case 'classification_failed':
-      return { ...state, classificationLive: { status: 'failed', error: event.error } }
+      return {
+        ...state,
+        classificationLive: { status: 'failed', error: event.error },
+        classificationDurationMs:
+          state.classificationStartedAt !== undefined ? new Date(event.ts).getTime() - state.classificationStartedAt : undefined,
+      }
     case 'heartbeat':
       return state
     default:
@@ -353,6 +373,8 @@ export function useMatterResearch(workspaceId: string) {
     currentStageStartedAt: state.currentStageStartedAt,
     classificationLive: state.classificationLive,
     classificationFieldsLive: state.classificationFieldsLive,
+    classificationStartedAt: state.classificationStartedAt,
+    classificationDurationMs: state.classificationDurationMs,
     start,
     cancel,
   }
