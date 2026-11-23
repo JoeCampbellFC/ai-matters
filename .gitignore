@@ -25,6 +25,12 @@ certs/
 # confidential Matter Knowledge Markdown, never committed.
 server/data/
 
+# Azure deployment parameter files you may create locally with real secrets
+# filled in -- see infra/main.bicep's header comment (secrets should be
+# passed as CLI parameters instead, but this is a safety net either way).
+infra/*.parameters.json
+!infra/main.parameters.example.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

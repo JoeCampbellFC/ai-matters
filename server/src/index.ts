@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import express from 'express'
 import cors from 'cors'
 import { config } from './config.js'
@@ -38,7 +41,23 @@ app.use('/api/libraries', librariesRouter)
 app.use('/api/matters', matterResearchRouter)
 app.use('/api/matters', matterProfileRouter)
 
+// Populated only in the deployed package (the CI pipeline copies the built
+// frontend here, see azure-pipelines.yml) -- absent in local dev, where Vite
+// serves the frontend itself, so this block simply never matches anything.
+const staticDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public')
+const indexHtmlPath = path.join(staticDir, 'index.html')
+const servesStaticFrontend = existsSync(indexHtmlPath)
+
+if (servesStaticFrontend) {
+  app.use(express.static(staticDir))
+}
+
 app.use((req, res) => {
+  // SPA fallback: any non-API GET (a client-side route) serves the app shell, same as a real static host would.
+  if (servesStaticFrontend && req.method === 'GET' && !req.path.startsWith('/api/')) {
+    res.sendFile(indexHtmlPath)
+    return
+  }
   res.status(404).json({ error: { code: 'not_found', message: `No route for ${req.method} ${req.path}` } })
 })
 
