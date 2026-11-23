@@ -9,6 +9,18 @@ vi.mock('openai', () => {
   return { default: OpenAIMock }
 })
 
+// Must not depend on real Azure OpenAI credentials being present in the
+// environment (e.g. a local .env) -- CI has none, so without this the
+// client would throw DecisionsConfigError before ever reaching the mocked
+// openai client above.
+vi.mock('../config.js', () => ({
+  config: {
+    azureOpenAiEndpoint: 'https://test-resource.openai.azure.com',
+    azureOpenAiApiKey: 'test-api-key',
+    azureOpenAiDecisionsDeploymentName: 'gpt-6-luna',
+  },
+}))
+
 const { classifyChoice } = await import('./decisionsClient.js')
 const {
   DecisionsConfigError,
