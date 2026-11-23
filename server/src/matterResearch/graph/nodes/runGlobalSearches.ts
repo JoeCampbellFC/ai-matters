@@ -7,6 +7,30 @@ import { callTool, emit, emitStage, requireContext, type NodeConfig } from './sh
 
 const MAX_RESULTS_PER_QUERY = 25
 
+function rawString(raw: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value = raw?.[key]
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined
+}
+
+/**
+ * The `search` tool (iManage's Search connector) takes a single free-text
+ * natural-language query with no structured workspace/client/matter filter
+ * -- so client (custom1) and matter (custom2) identifiers are embedded
+ * directly in the query text, the way iManage's own docs phrase it (e.g.
+ * "Search client 3456, matter 7659 for arbitration-related documents").
+ * This scopes results toward the right matter but is still a best-effort
+ * text match, not a guarantee -- every hit still goes through
+ * verifyMembership before anything is fetched.
+ */
+function scopedQuery(workspace: { raw: Record<string, unknown> } | undefined, query: string): string {
+  const client = rawString(workspace?.raw, 'custom1')
+  const matter = rawString(workspace?.raw, 'custom2')
+  if (client && matter) return `Search client ${client}, matter ${matter} for ${query}`
+  if (client) return `Search client ${client} for ${query}`
+  if (matter) return `Search matter ${matter} for ${query}`
+  return query
+}
+
 /**
  * Executes this iteration's planned searches via the unscoped `search` tool.
  * Results are unverified leads only -- they're tagged 'global_search' and
@@ -20,7 +44,12 @@ export async function runGlobalSearches(state: ResearchState, config: NodeConfig
     return {}
   }
 
-  emit(config, { type: 'activity', stage: 'searching', message: 'Searching matter documents…' })
+  const isRefinement = state.coverage !== undefined
+  emit(config, {
+    type: 'activity',
+    stage: 'searching',
+    message: isRefinement ? 'Running new searches to close evidence gaps…' : 'Searching matter documents…',
+  })
 
   const { limits } = requireContext(config)
   const candidates: Record<string, CandidateDocument> = {}
@@ -33,7 +62,7 @@ export async function runGlobalSearches(state: ResearchState, config: NodeConfig
     emit(config, { type: 'search_started', query: plan.query })
 
     const result = await callTool(config, SEARCH_TOOL, (tool) =>
-      buildGlobalSearchArgs(tool, { query: plan.query, limit: MAX_RESULTS_PER_QUERY }),
+      buildGlobalSearchArgs(tool, { query: scopedQuery(state.workspace, plan.query), limit: MAX_RESULTS_PER_QUERY }),
     )
     mcpCalls += 1
     const { hits } = mapToolResultToSearchHits(result)

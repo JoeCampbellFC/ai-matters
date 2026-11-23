@@ -1,7 +1,6 @@
 export type ResearchStage =
   | 'initializing'
   | 'planning_searches'
-  | 'traversing_workspace'
   | 'searching'
   | 'verifying_membership'
   | 'ranking_candidates'
@@ -14,8 +13,8 @@ export type ResearchRunStatus = 'running' | 'succeeded' | 'failed' | 'cancelled'
 
 export type DocumentStatus = 'candidate' | 'selected' | 'reading' | 'reviewed' | 'used' | 'excluded'
 
-export type DiscoverySource = 'container_traversal' | 'global_search'
-export type MembershipVerifiedBy = 'container_traversal' | 'profile_match'
+export type DiscoverySource = 'global_search'
+export type MembershipVerifiedBy = 'profile_match'
 export type MembershipExcludedReason = 'wrong_workspace' | 'membership_unverifiable' | 'profile_lookup_failed'
 
 export type SearchQueryStatus = 'planned' | 'searching' | 'completed'
@@ -130,6 +129,9 @@ export type ResearchEventType =
   | 'run_succeeded'
   | 'run_failed'
   | 'run_cancelled'
+  | 'classification_started'
+  | 'classification_completed'
+  | 'classification_failed'
   | 'heartbeat'
 
 interface ResearchEventBase {
@@ -174,6 +176,15 @@ export type ResearchEvent =
       summary?: { documentsUsed: number; tokensUsed: number; durationMs: number }
       error?: { code: string; message: string }
     })
+  | (ResearchEventBase & { type: 'classification_started' })
+  | (ResearchEventBase & {
+      type: 'classification_completed'
+      matterTypeId: string | null
+      label: string | null
+      confidence: number | null
+      status: string
+    })
+  | (ResearchEventBase & { type: 'classification_failed'; error: { code: string; message: string } })
   | (ResearchEventBase & { type: 'heartbeat' })
 
 /** Distributes Omit over the ResearchEvent union so each variant keeps its own extra fields. */

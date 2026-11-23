@@ -15,20 +15,12 @@ export async function verifyMembership(state: ResearchState, config: NodeConfig)
     return {}
   }
 
-  const containerVerifiedIds = new Set(
-    unverified.filter((c) => c.discoveredVia.includes('container_traversal')).map((c) => c.documentId),
-  )
-  const searchLeadIds = unverified
-    .filter((c) => !c.discoveredVia.includes('container_traversal'))
-    .map((c) => c.documentId)
+  const candidateIds = unverified.map((c) => c.documentId)
 
   emit(config, {
     type: 'activity',
     stage: 'verifying_membership',
-    message:
-      searchLeadIds.length > 0
-        ? `Verifying workspace membership for ${searchLeadIds.length} search ${searchLeadIds.length === 1 ? 'result' : 'results'}…`
-        : 'Verifying workspace membership…',
+    message: `Verifying workspace membership for ${candidateIds.length} search ${candidateIds.length === 1 ? 'result' : 'results'}…`,
   })
 
   let mcpCalls = 0
@@ -43,14 +35,14 @@ export async function verifyMembership(state: ResearchState, config: NodeConfig)
     emit(config, {
       type: 'activity',
       stage: 'verifying_membership',
-      message: `Checked ${checked} of ${searchLeadIds.length}: ${profile?.name ?? documentId}`,
+      message: `Checked ${checked} of ${candidateIds.length}: ${profile?.name ?? documentId}`,
     })
     return profile
   }
 
   const result = await verifyWorkspaceMembership(
     { getDocumentProfile },
-    { workspaceId: state.workspaceId, containerVerifiedIds, searchLeadIds },
+    { workspaceId: state.workspaceId, candidateIds },
   )
 
   const candidates: Record<string, CandidateDocument> = {}

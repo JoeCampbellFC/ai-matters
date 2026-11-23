@@ -1,32 +1,55 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react'
 import { ApiError } from '@/services/api'
 import { cancelResearch, fetchRunSnapshot, startResearch, subscribeToResearchEvents } from '@/services/matterResearchApi'
-import type {
-  CoverageAssessment,
-  ResearchActivityItem,
-  ResearchDocument,
-  ResearchEvent,
-  ResearchRunStatus,
-  ResearchStage,
-  RunSnapshot,
-  SearchQueryItem,
-  SelectedSkill,
+import {
+  RESEARCH_STAGE_ORDER,
+  type CoverageAssessment,
+  type ResearchActivityItem,
+  type ResearchDocument,
+  type ResearchEvent,
+  type ResearchRunStatus,
+  type ResearchStage,
+  type RunSnapshot,
+  type SearchQueryItem,
+  type SelectedSkill,
 } from '@/types/research'
+
+/** Transient, live-only signal from this run's own SSE stream -- see useMatterProfile.ts for the durable source of truth. */
+export interface ClassificationLiveSignal {
+  status: 'classifying' | 'completed' | 'failed'
+  matterTypeId?: string | null
+  label?: string | null
+  confidence?: number | null
+  reviewStatus?: string
+  error?: { code: string; message: string }
+}
 
 interface MatterResearchState {
   runId?: string
   status: ResearchRunStatus | 'idle'
   stage?: ResearchStage
+  /** Which refine pass is active (0 = the initial pass, 1 = the first re-search after gaps were found, ...). */
+  iteration: number
+  /**
+   * The furthest index into RESEARCH_STAGE_ORDER this run has ever reached.
+   * A refine pass re-enters planning_searches/searching, which sit *earlier*
+   * in that order than assessing_coverage -- without this, the timeline
+   * would render as if the whole run had rewound to the start instead of
+   * looping back for another round.
+   */
+  maxStageIndexReached: number
   documents: Record<string, ResearchDocument>
   searchQueries: Record<string, SearchQueryItem>
   activity: ResearchActivityItem[]
   coverage?: CoverageAssessment
   skill?: SelectedSkill
   error?: { code: string; message: string }
-  /** Frozen durations (ms) for stages that have already finished. */
+  /** Cumulative durations (ms) across every pass a stage has run for so far. */
   stageDurationsMs: Partial<Record<ResearchStage, number>>
   /** Epoch ms the *current* stage started -- lets the UI tick a live elapsed counter. */
   currentStageStartedAt?: number
+  /** Phase 3: live classification progress pushed onto this same run's event stream. */
+  classificationLive?: ClassificationLiveSignal
 }
 
 /** Finalizes the outgoing stage's duration using `atTs` as its end time, unless it's still the same stage. */
@@ -42,7 +65,10 @@ function finalizeStageDuration(
   }
   const stageDurationsMs = { ...state.stageDurationsMs }
   if (state.stage && state.currentStageStartedAt !== undefined) {
-    stageDurationsMs[state.stage] = now - state.currentStageStartedAt
+    // Accumulated, not overwritten -- a refine pass re-running an earlier
+    // stage (e.g. a second "searching") adds to its total time rather than
+    // discarding how long the first pass took there.
+    stageDurationsMs[state.stage] = (stageDurationsMs[state.stage] ?? 0) + (now - state.currentStageStartedAt)
   }
   return { stageDurationsMs, currentStageStartedAt: now }
 }
@@ -58,6 +84,8 @@ const MAX_ACTIVITY_ITEMS = 300
 
 const INITIAL_STATE: MatterResearchState = {
   status: 'idle',
+  iteration: 0,
+  maxStageIndexReached: -1,
   documents: {},
   searchQueries: {},
   activity: [],
@@ -74,7 +102,13 @@ function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterRes
         skill: { name: event.skillName, description: event.description, rationale: event.rationale },
       }
     case 'stage_changed':
-      return { ...state, ...finalizeStageDuration(state, event.stage, event.ts), stage: event.stage }
+      return {
+        ...state,
+        ...finalizeStageDuration(state, event.stage, event.ts),
+        stage: event.stage,
+        iteration: event.iteration,
+        maxStageIndexReached: Math.max(state.maxStageIndexReached, RESEARCH_STAGE_ORDER.indexOf(event.stage)),
+      }
     case 'search_planned':
       return {
         ...state,
@@ -133,6 +167,21 @@ function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterRes
       return { ...state, ...finalizeStageDuration(state, undefined, event.ts), status: 'failed', error: event.error }
     case 'run_cancelled':
       return { ...state, ...finalizeStageDuration(state, undefined, event.ts), status: 'cancelled' }
+    case 'classification_started':
+      return { ...state, classificationLive: { status: 'classifying' } }
+    case 'classification_completed':
+      return {
+        ...state,
+        classificationLive: {
+          status: 'completed',
+          matterTypeId: event.matterTypeId,
+          label: event.label,
+          confidence: event.confidence,
+          reviewStatus: event.status,
+        },
+      }
+    case 'classification_failed':
+      return { ...state, classificationLive: { status: 'failed', error: event.error } }
     case 'heartbeat':
       return state
     default:
@@ -146,11 +195,18 @@ function reducer(state: MatterResearchState, action: Action): MatterResearchStat
       return INITIAL_STATE
     case 'attached':
       return { ...INITIAL_STATE, runId: action.runId, status: 'running' }
-    case 'snapshot':
+    case 'snapshot': {
+      // The live SSE subscription (not this snapshot) replays every historical
+      // stage_changed event, so it's what actually rebuilds maxStageIndexReached
+      // precisely. This is just a defensive floor in case the snapshot's
+      // stage/queries resolve before that replay catches up.
+      const snapshotIteration = action.snapshot.searchQueries.reduce((max, q) => Math.max(max, q.iteration), 0)
       return {
         ...state,
         status: action.snapshot.status,
         stage: action.snapshot.stage,
+        iteration: Math.max(state.iteration, snapshotIteration),
+        maxStageIndexReached: Math.max(state.maxStageIndexReached, RESEARCH_STAGE_ORDER.indexOf(action.snapshot.stage)),
         // Reattaching (e.g. after a page refresh) only recovers where the *current* stage started --
         // durations for stages that already finished before reattach aren't recoverable from a snapshot.
         currentStageStartedAt: new Date(action.snapshot.stageStartedAt).getTime(),
@@ -160,6 +216,7 @@ function reducer(state: MatterResearchState, action: Action): MatterResearchStat
         skill: action.snapshot.skill,
         error: action.snapshot.error,
       }
+    }
     case 'event':
       return applyEvent(state, action.event)
     default:
@@ -239,6 +296,8 @@ export function useMatterResearch(workspaceId: string) {
     runId: state.runId,
     status: state.status,
     stage: state.stage,
+    iteration: state.iteration,
+    maxStageIndexReached: state.maxStageIndexReached,
     documents: Object.values(state.documents),
     searchQueries: Object.values(state.searchQueries),
     activity: state.activity,
@@ -247,6 +306,7 @@ export function useMatterResearch(workspaceId: string) {
     error: state.error,
     stageDurationsMs: state.stageDurationsMs,
     currentStageStartedAt: state.currentStageStartedAt,
+    classificationLive: state.classificationLive,
     start,
     cancel,
   }

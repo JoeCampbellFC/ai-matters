@@ -3,7 +3,6 @@ import { ResearchAnnotation } from './state.js'
 import { NodeContextAnnotation } from './nodes/shared.js'
 import { loadWorkspaceContext } from './nodes/loadWorkspaceContext.js'
 import { planSearches } from './nodes/planSearches.js'
-import { traverseContainer } from './nodes/traverseContainer.js'
 import { runGlobalSearches } from './nodes/runGlobalSearches.js'
 import { verifyMembership } from './nodes/verifyMembership.js'
 import { rankCandidates } from './nodes/rankCandidates.js'
@@ -20,7 +19,6 @@ export function buildMatterResearchGraph() {
   return new StateGraph(ResearchAnnotation, NodeContextAnnotation)
     .addNode('loadWorkspaceContext', loadWorkspaceContext)
     .addNode('planSearches', planSearches)
-    .addNode('traverseContainer', traverseContainer)
     .addNode('runGlobalSearches', runGlobalSearches)
     .addNode('verifyMembership', verifyMembership)
     .addNode('rankCandidates', rankCandidates)
@@ -33,8 +31,7 @@ export function buildMatterResearchGraph() {
     .addNode('finalize', finalize)
     .addEdge(START, 'loadWorkspaceContext')
     .addEdge('loadWorkspaceContext', 'planSearches')
-    .addEdge('planSearches', 'traverseContainer')
-    .addEdge('traverseContainer', 'runGlobalSearches')
+    .addEdge('planSearches', 'runGlobalSearches')
     .addEdge('runGlobalSearches', 'verifyMembership')
     .addEdge('verifyMembership', 'rankCandidates')
     .addEdge('rankCandidates', 'selectDocuments')

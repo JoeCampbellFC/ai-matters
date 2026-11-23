@@ -4,7 +4,6 @@ import { DocumentStatusBadge } from './DocumentStatusBadge'
 import type { ResearchDocument } from '@/types/research'
 
 const DISCOVERY_LABELS: Record<string, string> = {
-  container_traversal: 'Workspace folder',
   global_search: 'Search',
 }
 

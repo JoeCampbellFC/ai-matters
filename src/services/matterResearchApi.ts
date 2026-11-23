@@ -15,6 +15,9 @@ const RESEARCH_EVENT_TYPES: ResearchEventType[] = [
   'run_succeeded',
   'run_failed',
   'run_cancelled',
+  'classification_started',
+  'classification_completed',
+  'classification_failed',
   'heartbeat',
 ]
 

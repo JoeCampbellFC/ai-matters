@@ -5,7 +5,6 @@
 export type ResearchStage =
   | 'initializing'
   | 'planning_searches'
-  | 'traversing_workspace'
   | 'searching'
   | 'verifying_membership'
   | 'ranking_candidates'
@@ -14,11 +13,30 @@ export type ResearchStage =
   | 'assessing_coverage'
   | 'synthesizing'
 
+/**
+ * Canonical forward order of the pipeline. Shared by useMatterResearch's
+ * ratcheted "how far has this run ever gotten" tracking and
+ * ResearchStageTimeline's rendering, so a refine pass (which re-enters
+ * planning_searches/searching after assessing_coverage finds gaps) is judged
+ * against the same ordering in both places.
+ */
+export const RESEARCH_STAGE_ORDER: ResearchStage[] = [
+  'initializing',
+  'planning_searches',
+  'searching',
+  'verifying_membership',
+  'ranking_candidates',
+  'selecting_documents',
+  'reading_documents',
+  'assessing_coverage',
+  'synthesizing',
+]
+
 export type ResearchRunStatus = 'running' | 'succeeded' | 'failed' | 'cancelled'
 
 export type DocumentStatus = 'candidate' | 'selected' | 'reading' | 'reviewed' | 'used' | 'excluded'
 
-export type DiscoverySource = 'container_traversal' | 'global_search'
+export type DiscoverySource = 'global_search'
 
 export interface ResearchDocument {
   documentId: string
@@ -79,6 +97,9 @@ export type ResearchEventType =
   | 'run_succeeded'
   | 'run_failed'
   | 'run_cancelled'
+  | 'classification_started'
+  | 'classification_completed'
+  | 'classification_failed'
   | 'heartbeat'
 
 interface ResearchEventBase {
@@ -123,6 +144,15 @@ export type ResearchEvent =
       summary?: { documentsUsed: number; tokensUsed: number; durationMs: number }
       error?: { code: string; message: string }
     })
+  | (ResearchEventBase & { type: 'classification_started' })
+  | (ResearchEventBase & {
+      type: 'classification_completed'
+      matterTypeId: string | null
+      label: string | null
+      confidence: number | null
+      status: string
+    })
+  | (ResearchEventBase & { type: 'classification_failed'; error: { code: string; message: string } })
   | (ResearchEventBase & { type: 'heartbeat' })
 
 /** Shape of GET /api/matters/research/:runId */

@@ -46,8 +46,17 @@ async function selectSkill(state: ResearchState, config: NodeConfig): Promise<Se
 }
 
 export async function planSearches(state: ResearchState, config: NodeConfig): Promise<ResearchStateUpdate> {
-  emitStage(config, state, 'planning_searches')
-  emit(config, { type: 'activity', stage: 'planning_searches', message: 'Planning document searches…' })
+  const isRefinement = state.coverage !== undefined
+  const iteration = isRefinement ? state.budget.iterationCount + 1 : state.budget.iterationCount
+
+  emitStage(config, state, 'planning_searches', iteration)
+  emit(config, {
+    type: 'activity',
+    stage: 'planning_searches',
+    message: isRefinement
+      ? `Planning additional searches to close evidence gaps (pass ${iteration + 1})…`
+      : 'Planning document searches…',
+  })
 
   let skillLlmCalls = 0
   let skill = state.skill
@@ -67,9 +76,6 @@ export async function planSearches(state: ResearchState, config: NodeConfig): Pr
     })
   }
   const skillBody = getSkill(skill.name)?.body
-
-  const isRefinement = state.coverage !== undefined
-  const iteration = isRefinement ? state.budget.iterationCount + 1 : state.budget.iterationCount
 
   const instructions = isRefinement
     ? [

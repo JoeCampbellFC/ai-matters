@@ -3,7 +3,7 @@ import { buildCitationRegistry, renderSourcesSection, stripUnknownCitations, val
 import type { CandidateDocument } from './types.js'
 
 function candidate(overrides: Partial<CandidateDocument> = {}): CandidateDocument {
-  return { documentId: 'DOC-1', discoveredVia: ['container_traversal'], status: 'selected', ...overrides }
+  return { documentId: 'DOC-1', discoveredVia: ['global_search'], status: 'selected', ...overrides }
 }
 
 describe('buildCitationRegistry', () => {

@@ -46,9 +46,20 @@ export function emit(config: NodeConfig, event: EmittedResearchEvent): void {
  * `updates`-mode chunks after the fact (which only fires once a node
  * *finishes*, making the reported "current" stage always one node behind
  * and the resulting duration measurements wrong).
+ *
+ * `iteration` defaults to `state.budget.iterationCount`, but planSearches
+ * passes its about-to-be-current iteration explicitly: that node's own
+ * budget update (which bumps iterationCount on a refine pass) hasn't been
+ * applied yet at the point it calls this, so the default would under-report
+ * by one specifically for its own stage_changed event.
  */
-export function emitStage(config: NodeConfig, state: { budget: { iterationCount: number } }, stage: ResearchStage): void {
-  emit(config, { type: 'stage_changed', stage, iteration: state.budget.iterationCount })
+export function emitStage(
+  config: NodeConfig,
+  state: { budget: { iterationCount: number } },
+  stage: ResearchStage,
+  iteration?: number,
+): void {
+  emit(config, { type: 'stage_changed', stage, iteration: iteration ?? state.budget.iterationCount })
 }
 
 export function requireTool(tools: Tool[], name: string): Tool {

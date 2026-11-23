@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import {
   AuthRequiredError,
   McpToolError,
@@ -8,6 +9,15 @@ import {
 } from './mcp/errors.js'
 import { LlmConfigError, LlmDeploymentUnavailableError, LlmRateLimitedError, LlmRequestError } from './llm/errors.js'
 import { RunAlreadyInProgressError, RunNotFoundError, RunNotReadyError } from './matterResearch/errors.js'
+import {
+  ClassificationInProgressError,
+  DecisionsConfigError,
+  DecisionsDeploymentUnavailableError,
+  DecisionsRateLimitedError,
+  DecisionsRequestError,
+  MarkdownNotReadyError,
+  MatterProfileNotFoundError,
+} from './classification/errors.js'
 
 export interface ErrorResponseBody {
   error: {
@@ -55,6 +65,30 @@ export function classifyError(error: unknown): { status: number; code: string; m
   }
   if (error instanceof LlmRequestError) {
     return { status: 502, code: 'llm_request_error', message: error.message }
+  }
+  if (error instanceof MatterProfileNotFoundError) {
+    return { status: 404, code: 'matter_profile_not_found', message: error.message }
+  }
+  if (error instanceof MarkdownNotReadyError) {
+    return { status: 409, code: 'markdown_not_ready', message: error.message }
+  }
+  if (error instanceof ClassificationInProgressError) {
+    return { status: 409, code: 'classification_in_progress', message: error.message }
+  }
+  if (error instanceof DecisionsConfigError) {
+    return { status: 502, code: 'decisions_config_error', message: error.message }
+  }
+  if (error instanceof DecisionsDeploymentUnavailableError) {
+    return { status: 503, code: 'decisions_deployment_unavailable', message: error.message }
+  }
+  if (error instanceof DecisionsRateLimitedError) {
+    return { status: 429, code: 'decisions_rate_limited', message: error.message }
+  }
+  if (error instanceof DecisionsRequestError) {
+    return { status: 502, code: 'decisions_request_error', message: error.message }
+  }
+  if (error instanceof z.ZodError) {
+    return { status: 400, code: 'invalid_request', message: error.issues[0]?.message ?? 'Invalid request.' }
   }
   return {
     status: 500,

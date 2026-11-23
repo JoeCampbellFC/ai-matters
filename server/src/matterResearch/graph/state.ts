@@ -37,8 +37,6 @@ export const ResearchAnnotation = Annotation.Root({
   workspaceId: Annotation<string>,
 
   workspace: Annotation<Workspace | undefined>({ reducer: (_current, next) => next, default: () => undefined }),
-  containerId: Annotation<string | undefined>({ reducer: (_current, next) => next, default: () => undefined }),
-  containerTraversalComplete: Annotation<boolean>({ reducer: (_current, next) => next, default: () => false }),
 
   /** Chosen once per run (first planSearches call) and left unchanged across refine passes. */
   skill: Annotation<SelectedSkill | undefined>({ reducer: (_current, next) => next, default: () => undefined }),

@@ -1,6 +1,6 @@
 import type { DocumentProfile } from '../mcp/matterMapper.js'
 
-export type MembershipVerifiedReason = 'container_traversal' | 'profile_match'
+export type MembershipVerifiedReason = 'profile_match'
 export type MembershipExcludedReason = 'wrong_workspace' | 'membership_unverifiable' | 'profile_lookup_failed'
 
 export interface MembershipVerificationResult {
@@ -15,28 +15,21 @@ function normalizeWorkspaceId(id: string): string {
 /**
  * Establishes workspace membership for candidate documents before any of them
  * may be fetched. The `search` MCP tool has no documented workspace-scoping
- * parameter, so its leads are unverified by construction -- each must be
- * cross-checked via get_document_profile. Documents already discovered by
- * recursively traversing the workspace's own containers are verified by
- * construction and need no further check.
+ * parameter (results are a free-text best-effort match, even when the query
+ * text itself mentions the client/matter identifiers) -- so every candidate
+ * must be cross-checked via get_document_profile before it can be trusted.
  *
  * Ambiguous cases (no workspace field on the profile, or a failed lookup) are
  * excluded and reported, never silently treated as members.
  */
 export async function verifyWorkspaceMembership(
   deps: { getDocumentProfile: (documentId: string) => Promise<DocumentProfile | null> },
-  input: { workspaceId: string; containerVerifiedIds: Set<string>; searchLeadIds: string[] },
+  input: { workspaceId: string; candidateIds: string[] },
 ): Promise<MembershipVerificationResult> {
   const result: MembershipVerificationResult = { verified: [], excluded: [] }
   const targetWorkspaceId = normalizeWorkspaceId(input.workspaceId)
 
-  for (const documentId of input.containerVerifiedIds) {
-    result.verified.push({ documentId, verifiedBy: 'container_traversal' })
-  }
-
-  const unverifiedLeads = input.searchLeadIds.filter((id) => !input.containerVerifiedIds.has(id))
-
-  for (const documentId of unverifiedLeads) {
+  for (const documentId of input.candidateIds) {
     let profile: DocumentProfile | null
     try {
       profile = await deps.getDocumentProfile(documentId)

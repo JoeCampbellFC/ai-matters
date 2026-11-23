@@ -3,6 +3,8 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
 import { config } from '../config.js'
 import { classifyError } from '../httpErrors.js'
+import { ClassificationInProgressError, MarkdownNotReadyError } from '../classification/errors.js'
+import { classifyFromCompletedRun } from '../classification/matterClassificationService.js'
 import { budgetLimitsFromConfig } from './budget.js'
 import { RunAlreadyInProgressError, RunNotFoundError } from './errors.js'
 import { buildMatterResearchGraph } from './graph/graph.js'
@@ -158,6 +160,46 @@ export function recordHeartbeat(run: ResearchRunRecord): void {
   pushEvent(run, { type: 'heartbeat' })
 }
 
+/**
+ * Fires Phase 3 classification automatically once (and only once) a run has
+ * actually succeeded with a non-empty Markdown result -- never on a failed
+ * or cancelled run. Reuses this run's own SSE event log (classification_*
+ * events) rather than a separate progress channel. Fire-and-forget: a
+ * classification failure must never affect the research run's own already-
+ * settled status.
+ */
+function triggerClassification(run: ResearchRunRecord, workspaceName: string | undefined, documentsUsed: number): void {
+  if (!run.result) return
+  classifyFromCompletedRun(
+    {
+      sessionId: run.sessionId,
+      workspaceId: run.workspaceId,
+      workspaceName,
+      researchRunId: run.runId,
+      markdown: run.result.markdown,
+      documentsUsed,
+    },
+    {
+      onStarted: () => pushEvent(run, { type: 'classification_started' }),
+      onCompleted: (profile) =>
+        pushEvent(run, {
+          type: 'classification_completed',
+          matterTypeId: profile.matterType.id,
+          label: profile.matterType.label,
+          confidence: profile.matterType.confidence,
+          status: profile.matterType.status,
+        }),
+      onFailed: (error) => pushEvent(run, { type: 'classification_failed', error }),
+    },
+  ).catch((error: unknown) => {
+    // The sink above already pushed classification_failed for in-process failures;
+    // this only guards the cases that throw before that (e.g. empty Markdown).
+    if (!(error instanceof MarkdownNotReadyError) && !(error instanceof ClassificationInProgressError)) {
+      console.error(`[research:${run.runId}] automatic classification failed:`, (error as Error).message)
+    }
+  })
+}
+
 /** Removes terminal runs older than researchRunTtlMs. Never touches a running run. */
 export function sweepStaleRuns(): void {
   const now = Date.now()
@@ -257,6 +299,7 @@ async function runGraph(run: ResearchRunRecord, client: Client, tools: Tool[]): 
         durationMs: Date.now() - startedAt,
       },
     })
+    triggerClassification(run, latestValues?.workspace?.name, citationRegistry.length)
   } catch (error) {
     if (run.abortController.signal.aborted) {
       run.status = 'cancelled'

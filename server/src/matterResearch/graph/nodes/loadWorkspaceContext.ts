@@ -30,12 +30,8 @@ export async function loadWorkspaceContext(state: ResearchState, config: NodeCon
     message: workspace ? `Retrieved workspace profile for "${workspace.name}"` : 'Retrieved workspace profile',
   })
 
-  const rawContainerId = workspace?.raw.container_id
-  const containerId = (typeof rawContainerId === 'string' && rawContainerId) || state.workspaceId
-
   return {
     workspace: workspace ?? undefined,
-    containerId,
     budget: incrementBudget(state.budget, { mcpCalls: 1 }),
   }
 }

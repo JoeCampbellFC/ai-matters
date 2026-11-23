@@ -25,6 +25,19 @@ export const config = {
   azureOpenAiTemperature:
     process.env.AZURE_OPENAI_TEMPERATURE !== undefined ? Number(process.env.AZURE_OPENAI_TEMPERATURE) : undefined,
 
+  // Separate deployment for the Decisions API (Phase 3 matter classification) --
+  // Decisions requires its own gpt-6-luna deployment on the same Azure OpenAI
+  // resource; gpt-5.4 (above) keeps doing Phase 2 summarisation unchanged.
+  // 'gpt-6-luna' is only a sensible default if that's also the tenant's real
+  // deployment name -- classificationDeploymentUnavailable surfaces clearly if not.
+  azureOpenAiDecisionsDeploymentName: process.env.AZURE_OPENAI_DECISIONS_DEPLOYMENT_NAME ?? 'gpt-6-luna',
+
+  classificationHighConfidence: Number(process.env.CLASSIFICATION_HIGH_CONFIDENCE ?? 0.85),
+  classificationReviewThreshold: Number(process.env.CLASSIFICATION_REVIEW_THRESHOLD ?? 0.65),
+  // Conservative char budget for the full Markdown before falling back to a
+  // deterministic reduced extract -- see classification/classificationInputBuilder.ts.
+  classificationMaxInputChars: Number(process.env.CLASSIFICATION_MAX_INPUT_CHARS ?? 60_000),
+
   researchMaxIterations: Number(process.env.RESEARCH_MAX_ITERATIONS ?? 3),
   researchMaxDocuments: Number(process.env.RESEARCH_MAX_DOCUMENTS ?? 40),
   researchMaxDurationMs: Number(process.env.RESEARCH_MAX_DURATION_MS ?? 10 * 60 * 1000),

@@ -59,7 +59,7 @@ export function WorkspaceDetailPage() {
         </Card>
       )}
 
-      {workspace && <MatterKnowledgePanel workspaceId={workspace.id} />}
+      {workspace && <MatterKnowledgePanel workspaceId={workspace.id} client={workspace.client} />}
     </div>
   )
 }

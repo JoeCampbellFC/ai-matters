@@ -7,6 +7,7 @@ import { mcpRouter } from './routes/mcp.js'
 import { workspacesRouter } from './routes/workspaces.js'
 import { librariesRouter } from './routes/libraries.js'
 import { matterResearchRouter } from './routes/matterResearch.js'
+import { matterProfileRouter } from './routes/matterProfile.js'
 import { classifyError } from './httpErrors.js'
 import { verifyAzureOpenAiConnectivity } from './llm/azureOpenAI.js'
 import { sweepStaleRuns } from './matterResearch/runManager.js'
@@ -23,6 +24,7 @@ app.use(
   }),
 )
 app.set('trust proxy', 1)
+app.use(express.json())
 app.use(createSessionMiddleware())
 
 app.get('/api/health', (_req, res) => {
@@ -34,6 +36,7 @@ app.use('/api/mcp', mcpRouter)
 app.use('/api/workspaces', workspacesRouter)
 app.use('/api/libraries', librariesRouter)
 app.use('/api/matters', matterResearchRouter)
+app.use('/api/matters', matterProfileRouter)
 
 app.use((req, res) => {
   res.status(404).json({ error: { code: 'not_found', message: `No route for ${req.method} ${req.path}` } })

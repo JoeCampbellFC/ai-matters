@@ -2,11 +2,19 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
 
-const { streamImpl } = vi.hoisted(() => ({ streamImpl: vi.fn() }))
+const { streamImpl, classifyFromCompletedRun } = vi.hoisted(() => ({
+  streamImpl: vi.fn(),
+  classifyFromCompletedRun: vi.fn().mockResolvedValue(undefined),
+}))
 
 vi.mock('./graph/graph.js', () => ({
   buildMatterResearchGraph: () => ({ stream: streamImpl }),
 }))
+
+// Classification is triggered automatically on a successful run (see
+// runManager.ts's triggerClassification) -- mocked here so these tests never
+// make a real Azure OpenAI Decisions API call.
+vi.mock('../classification/matterClassificationService.js', () => ({ classifyFromCompletedRun }))
 
 const {
   startResearchRun,
