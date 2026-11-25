@@ -93,9 +93,25 @@ function extractRecordList(payload: unknown, listKeys: string[]): unknown[] {
   return []
 }
 
+/**
+ * Deliberately NOT built on the shared firstString() helper: a numeric
+ * cursor of 0 (or negative) is the conventional "no more pages" sentinel for
+ * at least one live MCP server (iManage encodes cursors as numbers, per
+ * tools.ts), but firstString() treats any number, including 0, as a valid
+ * value. Reusing it here made every "last page" response still look like
+ * "there's more" -- get_container_children would re-fetch the same handful
+ * of containers forever instead of stopping, since the value we kept
+ * extracting and sending back as the next cursor was always 0.
+ */
 function extractCursor(payload: unknown): string | undefined {
   if (typeof payload !== 'object' || payload === null) return undefined
-  return firstString(payload as Record<string, unknown>, CURSOR_KEYS)
+  const record = payload as Record<string, unknown>
+  for (const key of CURSOR_KEYS) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim().length > 0) return value
+    if (typeof value === 'number' && value > 0) return String(value)
+  }
+  return undefined
 }
 
 export function mapToolResultToContainerChildren(

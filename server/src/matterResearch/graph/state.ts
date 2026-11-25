@@ -38,6 +38,17 @@ export const ResearchAnnotation = Annotation.Root({
 
   workspace: Annotation<Workspace | undefined>({ reducer: (_current, next) => next, default: () => undefined }),
 
+  /**
+   * Every document id actually in the workspace, built once per run by
+   * loadWorkspaceDocumentIds.ts via get_container_children -- lets
+   * verifyMembership check candidates with a Set lookup instead of one
+   * get_document_profile MCP call each. `...Complete` is false when the
+   * container tree traversal was cut short (budget limit, tool unavailable),
+   * in which case absence from the set does NOT prove non-membership.
+   */
+  workspaceDocumentIds: Annotation<Set<string>>({ reducer: (_current, next) => next, default: () => new Set() }),
+  workspaceDocumentIdsComplete: Annotation<boolean>({ reducer: (_current, next) => next, default: () => false }),
+
   /** Chosen once per run (first planSearches call) and left unchanged across refine passes. */
   skill: Annotation<SelectedSkill | undefined>({ reducer: (_current, next) => next, default: () => undefined }),
   searchPlans: Annotation<SearchPlan[]>({ reducer: (current, next) => current.concat(next), default: () => [] }),

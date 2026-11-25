@@ -87,6 +87,34 @@ export async function callTool(
   )) as CallToolResult
 }
 
+/**
+ * Converts a thrown MCP tool-call failure into a short, user-facing summary
+ * -- never the raw error. Observed live: the MCP SDK's own response
+ * validation (or the server's own internal validation, surfaced as the
+ * error message) can reject with a JSON-serialized array of Zod-style
+ * issues (`[{ code, path, message }, ...]`), which would otherwise dump a
+ * large illegible blob straight into the activity feed. Callers that can
+ * tolerate skipping a single failed call (e.g. one search query out of
+ * several) should use this rather than letting the raw error propagate.
+ */
+export function summarizeToolError(error: unknown): string {
+  const message = (error instanceof Error ? error.message : String(error)).trim()
+  if (message.startsWith('[') || message.startsWith('{')) {
+    try {
+      const parsed: unknown = JSON.parse(message)
+      const issues = Array.isArray(parsed) ? parsed : [parsed]
+      const first = issues[0] as { path?: unknown[]; message?: string } | undefined
+      if (first?.message) {
+        const path = Array.isArray(first.path) && first.path.length > 0 ? ` (at ${first.path.join('.')})` : ''
+        return `${first.message}${path}`
+      }
+    } catch {
+      // Not actually JSON -- fall through to plain-text truncation below.
+    }
+  }
+  return message.length > 200 ? `${message.slice(0, 200)}…` : message
+}
+
 export function requireContext(config: NodeConfig): NodeContext {
   const context = config.configurable
   if (!context?.client || !context.tools) {

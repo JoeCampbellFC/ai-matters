@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
+import { VisuallyHidden } from 'radix-ui'
 import { Activity, AlertCircle, AlertTriangle, Loader2, TerminalIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useMatterKnowledge } from '@/hooks/useMatterKnowledge'
 import { useMatterResearch } from '@/hooks/useMatterResearch'
@@ -41,6 +44,7 @@ export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
     skill,
     error,
     budgetExceeded,
+    currentScanningFolder,
     stageDurationsMs,
     currentStageStartedAt,
     iteration,
@@ -70,6 +74,7 @@ export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
     restore: restoreVersion,
   } = useMatterKnowledge(workspaceId, status)
   const markdown = (viewingVersion ?? currentVersion)?.content
+  const relevantDocumentCount = documents.filter((d) => d.status !== 'excluded').length
 
   const researchPanel = (
     <div className="flex flex-col gap-4">
@@ -89,6 +94,8 @@ export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
             maxStageIndexReached={maxStageIndexReached}
             skill={skill}
             documentCount={documents.length}
+            relevantDocumentCount={relevantDocumentCount}
+            currentScanningFolder={currentScanningFolder}
             classificationLive={classificationLive}
             classificationStartedAt={classificationStartedAt}
             classificationDurationMs={classificationDurationMs}
@@ -207,31 +214,36 @@ export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-full gap-0 sm:w-[70vw] sm:max-w-none">
-              <SheetHeader>
-                <SheetTitle>Research Activity</SheetTitle>
-                <SheetDescription>Live progress, coverage, and discovered documents as the agent researches this matter.</SheetDescription>
+            <SheetContent side="right" className="w-full gap-0 sm:w-[100vw] sm:max-w-none">
+              <SheetHeader className="flex-row items-center gap-2 space-y-0">
+                <VisuallyHidden.Root asChild>
+                  <SheetTitle>Research Activity</SheetTitle>
+                </VisuallyHidden.Root>
+                <span className="font-heading text-base font-medium text-foreground" aria-hidden="true">
+                  Research Activity
+                </span>
+                <Dialog>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="icon-sm">
+                          <TerminalIcon className="size-4" />
+                          <span className="sr-only">View Terminal</span>
+                        </Button>
+                      </DialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>View Terminal</TooltipContent>
+                  </Tooltip>
+                  <DialogContent className="flex h-[85vh] w-full flex-col overflow-hidden sm:max-w-5xl">
+                    <DialogHeader className="shrink-0">
+                      <DialogTitle>Terminal</DialogTitle>
+                      <DialogDescription>Live log of what the agent is doing, in order.</DialogDescription>
+                    </DialogHeader>
+                    <ResearchTerminal items={activity} className="min-h-0 flex-1" scrollClassName="flex-1" />
+                  </DialogContent>
+                </Dialog>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto px-4 pb-4">{researchPanel}</div>
-            </SheetContent>
-          </Sheet>
-        )}
-        {status !== 'idle' && (
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline">
-                <TerminalIcon className="size-4" />
-                View Terminal
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[20vh]">
-              <SheetHeader>
-                <SheetTitle>Terminal</SheetTitle>
-                <SheetDescription>Live log of what the agent is doing, in order.</SheetDescription>
-              </SheetHeader>
-              <div className="flex-1 overflow-hidden px-4 pb-4">
-                <ResearchTerminal items={activity} className="h-full" scrollClassName="flex-1" />
-              </div>
             </SheetContent>
           </Sheet>
         )}

@@ -49,6 +49,21 @@ describe('mapToolResultToContainerChildren', () => {
     const result = structuredResult({ children: [] })
     expect(mapToolResultToContainerChildren(result).nextCursor).toBeUndefined()
   })
+
+  it('extracts a numeric cursor', () => {
+    const result = structuredResult({ children: [], next_cursor: 7 })
+    expect(mapToolResultToContainerChildren(result).nextCursor).toBe('7')
+  })
+
+  it('treats a numeric cursor of 0 as "no more pages", not a real cursor', () => {
+    const result = structuredResult({ children: [], next_cursor: 0 })
+    expect(mapToolResultToContainerChildren(result).nextCursor).toBeUndefined()
+  })
+
+  it('treats a negative numeric cursor as "no more pages"', () => {
+    const result = structuredResult({ children: [], next_cursor: -1 })
+    expect(mapToolResultToContainerChildren(result).nextCursor).toBeUndefined()
+  })
 })
 
 describe('mapToolResultToSearchHits', () => {

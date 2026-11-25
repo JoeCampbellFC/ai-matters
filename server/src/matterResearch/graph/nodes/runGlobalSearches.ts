@@ -1,9 +1,9 @@
 import { SEARCH_TOOL, buildGlobalSearchArgs } from '../../../mcp/tools.js'
-import { mapToolResultToSearchHits } from '../../../mcp/matterMapper.js'
+import { type SearchHit, mapToolResultToSearchHits } from '../../../mcp/matterMapper.js'
 import { incrementBudget } from '../../budget.js'
 import type { CandidateDocument, DiscoverySource } from '../../types.js'
 import type { ResearchState, ResearchStateUpdate } from '../state.js'
-import { callTool, emit, emitStage, requireContext, type NodeConfig } from './shared.js'
+import { callTool, emit, emitStage, requireContext, summarizeToolError, type NodeConfig } from './shared.js'
 
 const MAX_RESULTS_PER_QUERY = 25
 
@@ -61,11 +61,26 @@ export async function runGlobalSearches(state: ResearchState, config: NodeConfig
 
     emit(config, { type: 'search_started', query: plan.query })
 
-    const result = await callTool(config, SEARCH_TOOL, (tool) =>
-      buildGlobalSearchArgs(tool, { query: scopedQuery(state.workspace, plan.query), limit: MAX_RESULTS_PER_QUERY }),
-    )
-    mcpCalls += 1
-    const { hits } = mapToolResultToSearchHits(result)
+    let hits: SearchHit[] = []
+    try {
+      const result = await callTool(config, SEARCH_TOOL, (tool) =>
+        buildGlobalSearchArgs(tool, { query: scopedQuery(state.workspace, plan.query), limit: MAX_RESULTS_PER_QUERY }),
+      )
+      mcpCalls += 1
+      hits = mapToolResultToSearchHits(result).hits
+    } catch (error) {
+      // A single malformed/oversized result set (e.g. the live server returning an
+      // item missing a field its own schema requires) must not fail the whole run --
+      // skip this query's results and keep going with the rest.
+      mcpCalls += 1
+      emit(config, {
+        type: 'activity',
+        stage: 'searching',
+        message: `Search for "${plan.query}" failed and was skipped: ${summarizeToolError(error)}`,
+      })
+      emit(config, { type: 'search_completed', query: plan.query, resultCount: 0 })
+      continue
+    }
     totalHits += hits.length
 
     emit(config, { type: 'search_completed', query: plan.query, resultCount: hits.length })

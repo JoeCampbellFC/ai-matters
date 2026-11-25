@@ -55,6 +55,8 @@ interface MatterResearchState {
   error?: { code: string; message: string }
   /** Set when the run stopped early because it hit a budget limit (e.g. max documents/LLM calls) rather than finishing naturally. */
   budgetExceeded?: BudgetLimitReason
+  /** Name of the folder loadWorkspaceDocumentIds.ts is currently indexing, if any -- only ever the single latest one, never a history. */
+  currentScanningFolder?: string
   /** Cumulative durations (ms) across every pass a stage has run for so far. */
   stageDurationsMs: Partial<Record<ResearchStage, number>>
   /** Epoch ms the *current* stage started -- lets the UI tick a live elapsed counter. */
@@ -183,6 +185,8 @@ function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterRes
         },
       }
     }
+    case 'workspace_folder_scanning':
+      return { ...state, currentScanningFolder: event.folderName }
     case 'coverage_assessed':
       return { ...state, coverage: { coveredTopics: event.coveredTopics, gaps: event.gaps } }
     case 'run_succeeded':
@@ -379,6 +383,7 @@ export function useMatterResearch(workspaceId: string) {
     skill: state.skill,
     error: state.error,
     budgetExceeded: state.budgetExceeded,
+    currentScanningFolder: state.currentScanningFolder,
     stageDurationsMs: state.stageDurationsMs,
     currentStageStartedAt: state.currentStageStartedAt,
     classificationLive: state.classificationLive,

@@ -1,7 +1,15 @@
 import { ApiError, apiRequest } from './api'
 import type { CitationRegistryEntry, ResearchEvent, ResearchEventType, RunSnapshot } from '@/types/research'
 
-const RESEARCH_EVENT_TYPES: ResearchEventType[] = [
+/**
+ * EventSource requires a listener registered per named SSE event -- there is
+ * no generic "any event" handler. Every member of ResearchEventType must be
+ * listed here or its events are silently dropped client-side (the server
+ * still sends them fine; nothing on this end ever calls onEvent for them).
+ * Exported so a test can assert this stays in sync with the type union --
+ * the only way to catch a missing entry, since a type error can't.
+ */
+export const RESEARCH_EVENT_TYPES: ResearchEventType[] = [
   'run_started',
   'skill_selected',
   'stage_changed',
@@ -11,6 +19,7 @@ const RESEARCH_EVENT_TYPES: ResearchEventType[] = [
   'search_completed',
   'document_discovered',
   'document_status_changed',
+  'workspace_folder_scanning',
   'coverage_assessed',
   'run_succeeded',
   'run_failed',

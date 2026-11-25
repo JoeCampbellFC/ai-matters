@@ -61,4 +61,46 @@ describe('verifyWorkspaceMembership', () => {
     )
     expect(result.excluded).toEqual([{ documentId: 'DOC-3', reason: 'profile_lookup_failed' }])
   })
+
+  describe('with a known workspace document listing', () => {
+    it('verifies a candidate present in the listing without calling getDocumentProfile', async () => {
+      const getDocumentProfile = vi.fn()
+      const result = await verifyWorkspaceMembership(
+        { getDocumentProfile },
+        { workspaceId: 'WS-1', candidateIds: ['DOC-3'], knownDocumentIds: new Set(['DOC-3']), knownDocumentIdsComplete: true },
+      )
+      expect(result.verified).toEqual([{ documentId: 'DOC-3', verifiedBy: 'workspace_listing' }])
+      expect(getDocumentProfile).not.toHaveBeenCalled()
+    })
+
+    it('excludes a candidate absent from a complete listing without calling getDocumentProfile', async () => {
+      const getDocumentProfile = vi.fn()
+      const result = await verifyWorkspaceMembership(
+        { getDocumentProfile },
+        { workspaceId: 'WS-1', candidateIds: ['DOC-3'], knownDocumentIds: new Set(['DOC-OTHER']), knownDocumentIdsComplete: true },
+      )
+      expect(result.excluded).toEqual([{ documentId: 'DOC-3', reason: 'wrong_workspace' }])
+      expect(getDocumentProfile).not.toHaveBeenCalled()
+    })
+
+    it('falls back to getDocumentProfile for a candidate absent from an incomplete listing', async () => {
+      const getDocumentProfile = vi.fn().mockResolvedValue(profile({ id: 'DOC-3', workspaceId: 'WS-1' }))
+      const result = await verifyWorkspaceMembership(
+        { getDocumentProfile },
+        { workspaceId: 'WS-1', candidateIds: ['DOC-3'], knownDocumentIds: new Set(), knownDocumentIdsComplete: false },
+      )
+      expect(result.verified).toEqual([{ documentId: 'DOC-3', verifiedBy: 'profile_match' }])
+      expect(getDocumentProfile).toHaveBeenCalledWith('DOC-3')
+    })
+
+    it('still uses the fast path for ids the incomplete listing did manage to collect', async () => {
+      const getDocumentProfile = vi.fn()
+      const result = await verifyWorkspaceMembership(
+        { getDocumentProfile },
+        { workspaceId: 'WS-1', candidateIds: ['DOC-3'], knownDocumentIds: new Set(['DOC-3']), knownDocumentIdsComplete: false },
+      )
+      expect(result.verified).toEqual([{ documentId: 'DOC-3', verifiedBy: 'workspace_listing' }])
+      expect(getDocumentProfile).not.toHaveBeenCalled()
+    })
+  })
 })

@@ -14,7 +14,7 @@ export type ResearchRunStatus = 'running' | 'succeeded' | 'failed' | 'cancelled'
 export type DocumentStatus = 'candidate' | 'selected' | 'reading' | 'reviewed' | 'used' | 'excluded'
 
 export type DiscoverySource = 'global_search'
-export type MembershipVerifiedBy = 'profile_match'
+export type MembershipVerifiedBy = 'profile_match' | 'workspace_listing'
 export type MembershipExcludedReason = 'wrong_workspace' | 'membership_unverifiable' | 'profile_lookup_failed'
 
 export type SearchQueryStatus = 'planned' | 'searching' | 'completed'
@@ -125,6 +125,7 @@ export type ResearchEventType =
   | 'search_completed'
   | 'document_discovered'
   | 'document_status_changed'
+  | 'workspace_folder_scanning'
   | 'coverage_assessed'
   | 'run_succeeded'
   | 'run_failed'
@@ -173,6 +174,7 @@ export type ResearchEvent =
       status: DocumentStatus
       reason?: string
     })
+  | (ResearchEventBase & { type: 'workspace_folder_scanning'; folderName: string })
   | (ResearchEventBase & { type: 'coverage_assessed'; coveredTopics: string[]; gaps: CoverageGap[]; iteration: number })
   | (ResearchEventBase & {
       type: 'run_succeeded' | 'run_failed' | 'run_cancelled'

@@ -2,6 +2,7 @@ import { END, START, StateGraph } from '@langchain/langgraph'
 import { ResearchAnnotation } from './state.js'
 import { NodeContextAnnotation } from './nodes/shared.js'
 import { loadWorkspaceContext } from './nodes/loadWorkspaceContext.js'
+import { loadWorkspaceDocumentIds } from './nodes/loadWorkspaceDocumentIds.js'
 import { planSearches } from './nodes/planSearches.js'
 import { runGlobalSearches } from './nodes/runGlobalSearches.js'
 import { verifyMembership } from './nodes/verifyMembership.js'
@@ -18,6 +19,7 @@ import { finalize } from './nodes/finalize.js'
 export function buildMatterResearchGraph() {
   return new StateGraph(ResearchAnnotation, NodeContextAnnotation)
     .addNode('loadWorkspaceContext', loadWorkspaceContext)
+    .addNode('loadWorkspaceDocumentIds', loadWorkspaceDocumentIds)
     .addNode('planSearches', planSearches)
     .addNode('runGlobalSearches', runGlobalSearches)
     .addNode('verifyMembership', verifyMembership)
@@ -30,7 +32,8 @@ export function buildMatterResearchGraph() {
     .addNode('validateCitations', validateCitationsNode)
     .addNode('finalize', finalize)
     .addEdge(START, 'loadWorkspaceContext')
-    .addEdge('loadWorkspaceContext', 'planSearches')
+    .addEdge('loadWorkspaceContext', 'loadWorkspaceDocumentIds')
+    .addEdge('loadWorkspaceDocumentIds', 'planSearches')
     .addEdge('planSearches', 'runGlobalSearches')
     .addEdge('runGlobalSearches', 'verifyMembership')
     .addEdge('verifyMembership', 'rankCandidates')

@@ -95,6 +95,7 @@ export type ResearchEventType =
   | 'search_completed'
   | 'document_discovered'
   | 'document_status_changed'
+  | 'workspace_folder_scanning'
   | 'coverage_assessed'
   | 'run_succeeded'
   | 'run_failed'
@@ -143,6 +144,7 @@ export type ResearchEvent =
       status: DocumentStatus
       reason?: string
     })
+  | (ResearchEventBase & { type: 'workspace_folder_scanning'; folderName: string })
   | (ResearchEventBase & { type: 'coverage_assessed'; coveredTopics: string[]; gaps: CoverageGap[]; iteration: number })
   | (ResearchEventBase & {
       type: 'run_succeeded' | 'run_failed' | 'run_cancelled'

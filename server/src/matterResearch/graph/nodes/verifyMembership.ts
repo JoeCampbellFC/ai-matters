@@ -35,14 +35,19 @@ export async function verifyMembership(state: ResearchState, config: NodeConfig)
     emit(config, {
       type: 'activity',
       stage: 'verifying_membership',
-      message: `Checked ${checked} of ${candidateIds.length}: ${profile?.name ?? documentId}`,
+      message: `Verifying via document profile (${checked}): ${profile?.name ?? documentId}`,
     })
     return profile
   }
 
   const result = await verifyWorkspaceMembership(
     { getDocumentProfile },
-    { workspaceId: state.workspaceId, candidateIds },
+    {
+      workspaceId: state.workspaceId,
+      candidateIds,
+      knownDocumentIds: state.workspaceDocumentIds,
+      knownDocumentIdsComplete: state.workspaceDocumentIdsComplete,
+    },
   )
 
   const candidates: Record<string, CandidateDocument> = {}

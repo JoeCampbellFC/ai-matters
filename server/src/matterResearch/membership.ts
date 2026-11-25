@@ -1,6 +1,6 @@
 import type { DocumentProfile } from '../mcp/matterMapper.js'
 
-export type MembershipVerifiedReason = 'profile_match'
+export type MembershipVerifiedReason = 'profile_match' | 'workspace_listing'
 export type MembershipExcludedReason = 'wrong_workspace' | 'membership_unverifiable' | 'profile_lookup_failed'
 
 export interface MembershipVerificationResult {
@@ -17,19 +17,44 @@ function normalizeWorkspaceId(id: string): string {
  * may be fetched. The `search` MCP tool has no documented workspace-scoping
  * parameter (results are a free-text best-effort match, even when the query
  * text itself mentions the client/matter identifiers) -- so every candidate
- * must be cross-checked via get_document_profile before it can be trusted.
+ * must be cross-checked before it can be trusted.
  *
- * Ambiguous cases (no workspace field on the profile, or a failed lookup) are
- * excluded and reported, never silently treated as members.
+ * Fast path: if `knownDocumentIds` (an exhaustive listing of every document
+ * actually in the workspace, built once per run by loadWorkspaceDocumentIds.ts
+ * via get_container_children) is available, membership is a plain Set lookup
+ * -- no MCP call per candidate at all. When that listing is known to be
+ * complete, absence from it is itself a reliable "not a member" signal.
+ *
+ * Fallback (unchanged from before this existed): per-candidate
+ * get_document_profile, used whenever the listing is missing or was cut
+ * short (budget limit, tool unavailable) and the candidate's id doesn't
+ * already appear in whatever was collected. Ambiguous cases (no workspace
+ * field on the profile, or a failed lookup) are excluded and reported, never
+ * silently treated as members.
  */
 export async function verifyWorkspaceMembership(
   deps: { getDocumentProfile: (documentId: string) => Promise<DocumentProfile | null> },
-  input: { workspaceId: string; candidateIds: string[] },
+  input: {
+    workspaceId: string
+    candidateIds: string[]
+    knownDocumentIds?: Set<string>
+    knownDocumentIdsComplete?: boolean
+  },
 ): Promise<MembershipVerificationResult> {
   const result: MembershipVerificationResult = { verified: [], excluded: [] }
   const targetWorkspaceId = normalizeWorkspaceId(input.workspaceId)
+  const knownIds = input.knownDocumentIds
 
   for (const documentId of input.candidateIds) {
+    if (knownIds?.has(documentId)) {
+      result.verified.push({ documentId, verifiedBy: 'workspace_listing' })
+      continue
+    }
+    if (knownIds && input.knownDocumentIdsComplete) {
+      result.excluded.push({ documentId, reason: 'wrong_workspace' })
+      continue
+    }
+
     let profile: DocumentProfile | null
     try {
       profile = await deps.getDocumentProfile(documentId)

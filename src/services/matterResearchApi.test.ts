@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from './api'
 import {
+  RESEARCH_EVENT_TYPES,
   cancelResearch,
   fetchResearchMarkdown,
   fetchRunSnapshot,
   startResearch,
   subscribeToResearchEvents,
 } from './matterResearchApi'
+import type { ResearchEventType } from '@/types/research'
 
 function mockFetchOnce(response: { status: number; body?: unknown }) {
   vi.stubGlobal(
@@ -84,5 +86,34 @@ describe('subscribeToResearchEvents', () => {
 
     unsubscribe()
     expect(close).toHaveBeenCalled()
+  })
+
+  it('registers a listener for every event type the server can send (catches the type a future PR forgets)', () => {
+    // Mirrors ResearchEventType in @/types/research -- if that union gains a member, add it both there and
+    // to RESEARCH_EVENT_TYPES in matterResearchApi.ts, or this test (and the live feature) silently breaks.
+    const allEventTypes: ResearchEventType[] = [
+      'run_started',
+      'skill_selected',
+      'stage_changed',
+      'activity',
+      'search_planned',
+      'search_started',
+      'search_completed',
+      'document_discovered',
+      'document_status_changed',
+      'workspace_folder_scanning',
+      'coverage_assessed',
+      'run_succeeded',
+      'run_failed',
+      'run_cancelled',
+      'classification_started',
+      'classification_field_started',
+      'classification_field_completed',
+      'classification_field_failed',
+      'classification_completed',
+      'classification_failed',
+      'heartbeat',
+    ]
+    expect(new Set(RESEARCH_EVENT_TYPES)).toEqual(new Set(allEventTypes))
   })
 })

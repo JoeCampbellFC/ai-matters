@@ -33,6 +33,8 @@ function state(overrides: Partial<ResearchState> = {}): ResearchState {
     sessionId: 'session-1',
     workspaceId: 'WS-1',
     workspace: { id: 'WS-1', name: 'Acme Share Purchase', raw: {} },
+    workspaceDocumentIds: new Set(),
+    workspaceDocumentIdsComplete: false,
     skill: undefined,
     searchPlans: [],
     candidates: {},

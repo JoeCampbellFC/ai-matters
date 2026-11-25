@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpenCheck, CheckCircle2, Circle, CircleSlash2, FileSearch, Loader2, RotateCcw, XCircle } from 'lucide-react'
+import { BookOpenCheck, CheckCircle2, Circle, CircleSlash2, FileSearch, Folder, Loader2, RotateCcw, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { ClassificationLiveSignal } from '@/hooks/useMatterResearch'
@@ -13,7 +13,7 @@ import {
 } from '@/types/research'
 
 const STAGE_LABELS: Record<ResearchStage, string> = {
-  initializing: 'Connecting to workspace',
+  initializing: 'Scanning workspace',
   planning_searches: 'Planning document searches',
   searching: 'Searching documents',
   verifying_membership: 'Verifying workspace membership',
@@ -136,14 +136,32 @@ function SkillSubList({ skill }: { skill: SelectedSkill }) {
   )
 }
 
-/** Shows how many documents were found in the matter, inline under "Verifying workspace membership". */
-function DocumentCountSubList({ count }: { count: number }) {
+/**
+ * Shows only the single folder currently being scanned, inline under
+ * "Scanning workspace" -- unlike SearchQuerySubList this never grows into a
+ * history; `key={folderName}` forces a fresh mount (and so a fresh
+ * animate-in play) each time the folder changes, giving the "swipe up to
+ * the next one" effect without tracking any exit animation.
+ */
+function FolderScanSubList({ folderName }: { folderName: string }) {
+  return (
+    <ul className="ml-6 flex flex-col gap-1 overflow-hidden border-l border-border pl-3">
+      <li key={folderName} className="flex items-start gap-1.5 text-xs text-muted-foreground animate-in slide-in-from-bottom-2 fade-in duration-300">
+        <Folder className="size-3 shrink-0 translate-y-0.5" />
+        <span>Scanning &ldquo;{folderName}&rdquo;…</span>
+      </li>
+    </ul>
+  )
+}
+
+/** Shows how many search candidates were found vs. how many actually verified as belonging to this matter, inline under "Verifying workspace membership". */
+function DocumentCountSubList({ count, relevantCount }: { count: number; relevantCount: number }) {
   return (
     <ul className="ml-6 flex flex-col gap-1 border-l border-border pl-3">
       <li className="flex items-start gap-1.5 text-xs text-muted-foreground">
         <FileSearch className="size-3 shrink-0 translate-y-0.5" />
         <span>
-          {count} {count === 1 ? 'document' : 'documents'} found in this matter
+          {count} {count === 1 ? 'document' : 'documents'} found. {relevantCount} relevant for this matter.
         </span>
       </li>
     </ul>
@@ -166,6 +184,8 @@ export function ResearchStageTimeline({
   maxStageIndexReached,
   skill,
   documentCount,
+  relevantDocumentCount,
+  currentScanningFolder,
   classificationLive,
   classificationStartedAt,
   classificationDurationMs,
@@ -181,6 +201,10 @@ export function ResearchStageTimeline({
   maxStageIndexReached: number
   skill?: SelectedSkill
   documentCount: number
+  /** How many discovered candidates actually verified as belonging to this matter (not excluded). */
+  relevantDocumentCount: number
+  /** Name of the folder loadWorkspaceDocumentIds.ts is currently indexing, if any. */
+  currentScanningFolder?: string
   classificationLive?: ClassificationLiveSignal
   classificationStartedAt?: number
   classificationDurationMs?: number
@@ -226,9 +250,12 @@ export function ResearchStageTimeline({
                 </span>
                 <DurationPill ms={durationMs} />
               </div>
+              {step === 'initializing' && currentScanningFolder && <FolderScanSubList folderName={currentScanningFolder} />}
               {step === 'planning_searches' && skill && <SkillSubList skill={skill} />}
               {step === 'searching' && searchQueries.length > 0 && <SearchQuerySubList queries={searchQueries} />}
-              {step === 'verifying_membership' && documentCount > 0 && <DocumentCountSubList count={documentCount} />}
+              {step === 'verifying_membership' && documentCount > 0 && (
+                <DocumentCountSubList count={documentCount} relevantCount={relevantDocumentCount} />
+              )}
             </li>
           )
         })}
