@@ -61,7 +61,7 @@ export async function runGlobalSearches(state: ResearchState, config: NodeConfig
 
     emit(config, { type: 'search_started', query: plan.query })
 
-    let hits: SearchHit[] = []
+    let hits: SearchHit[]
     try {
       const result = await callTool(config, SEARCH_TOOL, (tool) =>
         buildGlobalSearchArgs(tool, { query: scopedQuery(state.workspace, plan.query), limit: MAX_RESULTS_PER_QUERY }),
