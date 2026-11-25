@@ -27,7 +27,7 @@ export async function writeMarkdown(state: ResearchState, config: NodeConfig): P
   const sectionMarkdown: string[] = []
   let llmCalls = 0
 
-  const skillBody = state.skill ? getSkill(state.skill.name)?.body : undefined
+  const skillBody = state.skill ? (await getSkill(state.skill.name))?.body : undefined
 
   for (const section of outline) {
     const sectionEvidence = state.evidence.filter((item) => section.evidenceIds.includes(item.id))

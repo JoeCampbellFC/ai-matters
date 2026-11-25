@@ -16,7 +16,16 @@ import {
   DecisionsRateLimitedError,
   DecisionsRequestError,
 } from './classification/errors.js'
-import { ConcurrencyConflictError, MarkdownNotPublishedError, MatterNotFoundError, StaleMarkdownVersionError } from './database/errors.js'
+import {
+  ConcurrencyConflictError,
+  FieldDefinitionNotFoundError,
+  MarkdownNotPublishedError,
+  MatterNotFoundError,
+  SkillNotFoundError,
+  StaleMarkdownVersionError,
+  SystemDefaultImmutableError,
+  ValidationError,
+} from './database/errors.js'
 
 export interface ErrorResponseBody {
   error: {
@@ -91,6 +100,18 @@ export function classifyError(error: unknown): { status: number; code: string; m
   }
   if (error instanceof MarkdownNotPublishedError) {
     return { status: 409, code: 'markdown_not_published', message: error.message }
+  }
+  if (error instanceof SystemDefaultImmutableError) {
+    return { status: 403, code: 'system_default_immutable', message: error.message }
+  }
+  if (error instanceof SkillNotFoundError) {
+    return { status: 404, code: 'skill_not_found', message: error.message }
+  }
+  if (error instanceof FieldDefinitionNotFoundError) {
+    return { status: 404, code: 'field_definition_not_found', message: error.message }
+  }
+  if (error instanceof ValidationError) {
+    return { status: 400, code: 'validation_error', message: error.message }
   }
   if (error instanceof z.ZodError) {
     return { status: 400, code: 'invalid_request', message: error.issues[0]?.message ?? 'Invalid request.' }

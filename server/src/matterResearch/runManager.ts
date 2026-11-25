@@ -13,6 +13,7 @@ import { RunAlreadyInProgressError, RunNotFoundError } from './errors.js'
 import { buildMatterResearchGraph } from './graph/graph.js'
 import type { ResearchState } from './graph/state.js'
 import type {
+  BudgetLimitReason,
   CitationRegistryEntry,
   CoverageAssessment,
   DocumentStatus,
@@ -57,6 +58,8 @@ export interface ResearchRunRecord {
   stageStartedAt: Date
   result?: { markdown: string; citationRegistry: CitationRegistryEntry[] }
   error?: { code: string; message: string }
+  /** Set when the run finished (successfully or not) only because it hit a budget limit, not because the work was actually done. */
+  budgetExceeded?: BudgetLimitReason
   /** Resolves once the graph run has fully settled (succeeded/failed/cancelled). */
   done: Promise<void>
 }
@@ -85,6 +88,8 @@ function applyProjection(run: ResearchRunRecord, event: ResearchEvent): void {
       run.stage = event.stage
       run.stageStartedAt = now
     }
+  } else if (event.type === 'activity') {
+    console.log(`[research:${run.runId}] [${event.stage}] ${event.message}`)
   } else if (event.type === 'document_discovered') {
     run.documents.set(event.document.documentId, { ...event.document })
   } else if (event.type === 'document_status_changed') {
@@ -336,12 +341,14 @@ async function runGraph(run: ResearchRunRecord, client: Client, tools: Tool[]): 
     const citationRegistry = latestValues?.citationRegistry ?? []
     run.result = { markdown, citationRegistry }
     run.status = 'succeeded'
+    run.budgetExceeded = latestValues?.budget?.exceeded
     pushEvent(run, {
       type: 'run_succeeded',
       summary: {
         documentsUsed: citationRegistry.length,
         tokensUsed: 0,
         durationMs: Date.now() - startedAt,
+        budgetExceeded: run.budgetExceeded,
       },
     })
     triggerClassification(run, latestValues?.workspace?.name, citationRegistry.length)

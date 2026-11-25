@@ -22,6 +22,7 @@ export const matterFieldDefinitions = pgTable('matter_field_definitions', {
   editable: boolean('editable').notNull().default(true),
   systemField: boolean('system_field').notNull().default(false),
   displayOrder: integer('display_order').notNull().default(0),
+  version: integer('version').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

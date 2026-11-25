@@ -8,7 +8,11 @@ const DISCOVERY_LABELS: Record<string, string> = {
 }
 
 export function ResearchDocumentTable({ documents }: { documents: ResearchDocument[] }) {
-  if (documents.length === 0) {
+  // Excluded documents are search leads that turned out not to belong to this workspace
+  // (see verifyMembership.ts) -- not a useful result to show here, only ones that passed.
+  const verified = documents.filter((doc) => doc.status !== 'excluded')
+
+  if (verified.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border py-12 text-center">
         <Inbox className="size-8 text-muted-foreground" />
@@ -32,7 +36,7 @@ export function ResearchDocumentTable({ documents }: { documents: ResearchDocume
           </TableRow>
         </TableHeader>
         <TableBody>
-          {documents.map((doc) => (
+          {verified.map((doc) => (
             <TableRow key={doc.documentId}>
               <TableCell className="font-medium text-foreground">{doc.name ?? doc.documentId}</TableCell>
               <TableCell className="text-muted-foreground">

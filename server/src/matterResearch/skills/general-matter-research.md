@@ -10,12 +10,12 @@ description: Default research strategy for a matter whose type is unclear or doe
 - Any document that appears to be a final, signed, or otherwise authoritative version
 - Status reports, chronologies, or summaries already present in the workspace
 
-## Suggested search queries
+## Suggested searches
 
-- "engagement letter"
-- "matter opening"
-- "status report"
-- "agreement"
+- The engagement or retention letter establishing this matter's scope and parties
+- Matter opening documents or intake notes for this matter
+- The most recent status report or chronology for this matter
+- The principal agreement or contract governing this matter
 
 ## What "complete" coverage looks like
 

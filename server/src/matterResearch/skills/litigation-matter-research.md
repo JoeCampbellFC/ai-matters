@@ -11,14 +11,14 @@ description: Litigation and dispute matters -- pleadings, case strategy, court f
 - Settlement correspondence and offers
 - Court orders, judgments, and rulings
 
-## Suggested search queries
+## Suggested searches
 
-- "complaint"
-- "pleading"
-- "case strategy"
-- "settlement"
-- "court order"
-- "discovery"
+- The filed complaint or initial pleading in this matter
+- Answers, counterclaims, or other pleadings filed in response
+- Case strategy memoranda or legal advice on the merits
+- Settlement correspondence or offers exchanged between the parties
+- Court orders, judgments, or rulings issued in this matter
+- Discovery requests, responses, or key evidentiary documents
 
 ## What "complete" coverage looks like
 

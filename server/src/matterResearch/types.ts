@@ -176,7 +176,7 @@ export type ResearchEvent =
   | (ResearchEventBase & { type: 'coverage_assessed'; coveredTopics: string[]; gaps: CoverageGap[]; iteration: number })
   | (ResearchEventBase & {
       type: 'run_succeeded' | 'run_failed' | 'run_cancelled'
-      summary?: { documentsUsed: number; tokensUsed: number; durationMs: number }
+      summary?: { documentsUsed: number; tokensUsed: number; durationMs: number; budgetExceeded?: BudgetLimitReason }
       error?: { code: string; message: string }
     })
   | (ResearchEventBase & { type: 'classification_started' })

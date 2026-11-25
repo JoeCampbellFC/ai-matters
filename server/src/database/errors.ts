@@ -29,3 +29,35 @@ export class MarkdownNotPublishedError extends Error {
     this.name = 'MarkdownNotPublishedError'
   }
 }
+
+/** A seeded/built-in row (a default playbook, or a system matter field) cannot be deleted or renamed. */
+export class SystemDefaultImmutableError extends Error {
+  constructor(message = 'This is a built-in default and cannot be deleted or renamed.') {
+    super(message)
+    this.name = 'SystemDefaultImmutableError'
+  }
+}
+
+/** No research skill/playbook exists with the given id or name. */
+export class SkillNotFoundError extends Error {
+  constructor(message = 'No research playbook exists with that id.') {
+    super(message)
+    this.name = 'SkillNotFoundError'
+  }
+}
+
+/** No matter field definition exists with the given id. */
+export class FieldDefinitionNotFoundError extends Error {
+  constructor(message = 'No matter field definition exists with that id.') {
+    super(message)
+    this.name = 'FieldDefinitionNotFoundError'
+  }
+}
+
+/** A business-rule violation on an otherwise well-formed request (e.g. a name/key that's already in use). */
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ValidationError'
+  }
+}

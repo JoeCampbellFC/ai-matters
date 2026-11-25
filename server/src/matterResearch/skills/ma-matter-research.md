@@ -12,14 +12,14 @@ description: M&A and corporate transaction matters -- share/asset purchase agree
 - Closing checklists and completion/closing documents
 - Ancillary agreements (escrow, non-compete, employment, transition services)
 
-## Suggested search queries
+## Suggested searches
 
-- "share purchase agreement"
-- "asset purchase agreement"
-- "letter of intent"
-- "due diligence report"
-- "disclosure schedule"
-- "closing checklist"
+- The executed share or asset purchase agreement, including signed copies and amendments
+- The letter of intent or term sheet setting out the originally proposed deal terms
+- Due diligence reports or memoranda prepared for this transaction
+- The disclosure schedules attached to the purchase agreement
+- The closing checklist or completion agenda for this transaction
+- Ancillary agreements such as escrow, non-compete, or transition services agreements for this deal
 
 ## What "complete" coverage looks like
 

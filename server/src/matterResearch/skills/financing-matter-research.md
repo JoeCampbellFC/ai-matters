@@ -11,14 +11,13 @@ description: Financing and lending matters -- facility agreements, security docu
 - Completion / drawdown records
 - Intercreditor or subordination agreements, where multiple lenders are involved
 
-## Suggested search queries
+## Suggested searches
 
-- "facility agreement"
-- "credit agreement"
-- "security agreement"
-- "conditions precedent"
-- "completion"
-- "drawdown"
+- The executed facility or credit agreement, including any amendments
+- Security documents such as debentures, charges, or guarantees granted under this facility
+- The conditions precedent checklist and evidence of satisfaction
+- Completion or drawdown records confirming funds were advanced
+- Any intercreditor or subordination agreement between the lenders on this facility
 
 ## What "complete" coverage looks like
 

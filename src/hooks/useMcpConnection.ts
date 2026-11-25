@@ -9,6 +9,11 @@ export function useMcpStatus() {
     queryKey: MCP_STATUS_QUERY_KEY,
     queryFn: ({ signal }) => fetchMcpStatus(signal),
     staleTime: 15_000,
+    // The backend can still be booting (far more to compile/import than Vite) when this
+    // first fires in dev -- the global QueryClient disables retries, so without this override
+    // a race here gets stuck in error state forever instead of healing once the backend is up.
+    retry: 3,
+    retryDelay: 1_000,
   })
 }
 

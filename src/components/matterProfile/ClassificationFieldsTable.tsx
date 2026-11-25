@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { ClassificationFieldLiveSignal } from '@/hooks/useMatterResearch'
 import type { ClassificationFieldOption, ClassificationStatus, MatterProfileField } from '@/types/matterProfile'
@@ -14,6 +15,8 @@ export interface ClassificationRow {
   probabilities: MatterProfileField['probabilities']
   override?: MatterProfileField['override']
   error?: { code: string; message: string }
+  /** Optimistic-concurrency token for correcting this field (0 = no override saved yet). */
+  version: number
 }
 
 /**
@@ -41,6 +44,7 @@ export function buildClassificationRows(
         confidence: null,
         status: 'classifying',
         probabilities: [],
+        version: 0,
       }
     }
 
@@ -57,6 +61,7 @@ export function buildClassificationRows(
         status: live.status === 'failed' ? 'failed' : ((live.reviewStatus as ClassificationStatus) ?? 'classified'),
         probabilities: [],
         error: live.error,
+        version: 0,
       }
     }
 
@@ -68,11 +73,23 @@ export function buildClassificationRows(
       confidence: null,
       status: 'pending',
       probabilities: [],
+      version: 0,
     }
   })
 }
 
-export function ClassificationFieldsTable({ rows }: { rows: ClassificationRow[] }) {
+export function ClassificationFieldsTable({
+  rows,
+  fieldOptions,
+  onCorrect,
+  correcting,
+}: {
+  rows: ClassificationRow[]
+  fieldOptions: ClassificationFieldOption[]
+  /** Overrides a single field's value inline, right from its row -- expectedVersion is the row's own optimistic-concurrency token. */
+  onCorrect: (fieldId: string, valueId: string, expectedVersion: number) => void
+  correcting: boolean
+}) {
   return (
     <div className="rounded-lg border border-border">
       <Table>
@@ -82,6 +99,7 @@ export function ClassificationFieldsTable({ rows }: { rows: ClassificationRow[] 
             <TableHead>Value</TableHead>
             <TableHead>Confidence</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Correct</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -90,6 +108,7 @@ export function ClassificationFieldsTable({ rows }: { rows: ClassificationRow[] 
               .filter((p) => p.id !== row.valueId)
               .sort((a, b) => b.probability - a.probability)[0]
             const isClassifying = row.status === 'classifying'
+            const choices = fieldOptions.find((option) => option.fieldId === row.fieldId)?.choices ?? []
 
             return (
               <TableRow key={row.fieldId}>
@@ -122,6 +141,24 @@ export function ClassificationFieldsTable({ rows }: { rows: ClassificationRow[] 
                   ) : (
                     <ClassificationStatusBadge status={row.status} />
                   )}
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={row.valueId ?? undefined}
+                    onValueChange={(valueId) => onCorrect(row.fieldId, valueId, row.version)}
+                    disabled={isClassifying || correcting}
+                  >
+                    <SelectTrigger size="sm" className="w-44">
+                      <SelectValue placeholder="Correct…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {choices.map((choice) => (
+                        <SelectItem key={choice.id} value={choice.id}>
+                          {choice.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </TableCell>
               </TableRow>
             )

@@ -30,6 +30,15 @@ const { invoke, getAzureChatModel } = vi.hoisted(() => {
 
 vi.mock('../../llm/azureOpenAI.js', () => ({ getAzureChatModel }))
 
+const GRAPH_TEST_SKILL = { name: 'general-matter-research', description: 'Default strategy.', body: 'General guidance.' }
+
+vi.mock('../skills.js', () => ({
+  FALLBACK_SKILL_NAME: 'general-matter-research',
+  listSkillSummaries: vi.fn(async () => [{ name: GRAPH_TEST_SKILL.name, description: GRAPH_TEST_SKILL.description }]),
+  getSkill: vi.fn(async () => GRAPH_TEST_SKILL),
+  getFallbackSkill: vi.fn(async () => GRAPH_TEST_SKILL),
+}))
+
 const { buildMatterResearchGraph } = await import('./graph.js')
 
 function tool(name: string, properties: Record<string, { type: string }>): Tool {

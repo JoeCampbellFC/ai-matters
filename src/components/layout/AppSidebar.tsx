@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { FolderSearch, Settings } from 'lucide-react'
+import { BookOpenCheck, FolderSearch, ListChecks, Settings } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -16,6 +16,8 @@ import { useMcpStatus } from '@/hooks/useMcpConnection'
 
 const NAV_ITEMS = [
   { to: '/workspaces', label: 'Workspaces', icon: FolderSearch },
+  { to: '/playbooks', label: 'Playbooks', icon: BookOpenCheck },
+  { to: '/matter-fields', label: 'Matter Fields', icon: ListChecks },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 

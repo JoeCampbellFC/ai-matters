@@ -95,6 +95,7 @@ matterResearchRouter.get('/research/:runId', (req, res, next) => {
       coverage: run.coverage,
       skill: run.skill,
       error: run.error,
+      budgetExceeded: run.budgetExceeded,
     })
   } catch (error) {
     next(error)

@@ -49,14 +49,14 @@ export function MarkdownViewer({ markdown, workspaceId }: { markdown: string; wo
         </div>
       </div>
       <TabsContent value="formatted">
-        <ScrollArea className="h-[32rem] rounded-md border border-border p-4">
+        <ScrollArea className="h-[70vh] min-h-[32rem] rounded-md border border-border p-4">
           <article className="prose prose-sm dark:prose-invert max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
           </article>
         </ScrollArea>
       </TabsContent>
       <TabsContent value="raw">
-        <ScrollArea className="h-[32rem] rounded-md border border-border p-4">
+        <ScrollArea className="h-[70vh] min-h-[32rem] rounded-md border border-border p-4">
           <pre className="whitespace-pre-wrap text-xs text-foreground">{markdown}</pre>
         </ScrollArea>
       </TabsContent>

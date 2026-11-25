@@ -23,12 +23,17 @@ export function MarkdownEditor({
   error,
   onSave,
   onCancel,
+  showChangeSummary = true,
+  saveLabel = 'Save New Version',
 }: {
   initialContent: string
   saving: boolean
   error?: string
   onSave: (content: string, changeSummary?: string) => void
   onCancel: () => void
+  /** Hide the "change summary" field for callers with no version-history concept (e.g. editing a research playbook). */
+  showChangeSummary?: boolean
+  saveLabel?: string
 }) {
   const [content, setContent] = useState(initialContent)
   const [changeSummary, setChangeSummary] = useState('')
@@ -43,12 +48,12 @@ export function MarkdownEditor({
             id="markdown-editor"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="h-[28rem] font-mono text-xs"
+            className="h-[70vh] min-h-[28rem] font-mono text-xs"
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Live Preview</Label>
-          <ScrollArea className="h-[28rem] rounded-md border border-border p-4">
+          <ScrollArea className="h-[70vh] min-h-[28rem] rounded-md border border-border p-4">
             <article className="prose prose-sm dark:prose-invert max-w-none">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
             </article>
@@ -56,15 +61,17 @@ export function MarkdownEditor({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="change-summary">Change summary (optional)</Label>
-        <Input
-          id="change-summary"
-          value={changeSummary}
-          onChange={(e) => setChangeSummary(e.target.value)}
-          placeholder="What did you change, and why?"
-        />
-      </div>
+      {showChangeSummary && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="change-summary">Change summary (optional)</Label>
+          <Input
+            id="change-summary"
+            value={changeSummary}
+            onChange={(e) => setChangeSummary(e.target.value)}
+            placeholder="What did you change, and why?"
+          />
+        </div>
+      )}
 
       {error && (
         <Alert variant="destructive">
@@ -75,7 +82,7 @@ export function MarkdownEditor({
 
       <div className="flex items-center gap-2">
         <Button disabled={!dirty || saving} onClick={() => onSave(content, changeSummary.trim() || undefined)}>
-          Save New Version
+          {saveLabel}
         </Button>
         <Button variant="outline" disabled={saving} onClick={onCancel}>
           Cancel

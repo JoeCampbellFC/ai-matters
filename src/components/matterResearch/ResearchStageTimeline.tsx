@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Circle, CircleSlash2, Loader2, RotateCcw, XCircle } from 'lucide-react'
+import { BookOpenCheck, CheckCircle2, Circle, CircleSlash2, FileSearch, Loader2, RotateCcw, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { ClassificationLiveSignal } from '@/hooks/useMatterResearch'
-import { RESEARCH_STAGE_ORDER, type ResearchRunStatus, type ResearchStage, type SearchQueryItem, type SearchQueryStatus } from '@/types/research'
+import {
+  RESEARCH_STAGE_ORDER,
+  type ResearchRunStatus,
+  type ResearchStage,
+  type SearchQueryItem,
+  type SearchQueryStatus,
+  type SelectedSkill,
+} from '@/types/research'
 
 const STAGE_LABELS: Record<ResearchStage, string> = {
   initializing: 'Connecting to workspace',
@@ -115,6 +122,34 @@ function SearchQuerySubList({ queries }: { queries: SearchQueryItem[] }) {
   )
 }
 
+/** Shows which research playbook was picked and why, inline under "Planning document searches" rather than in a separate banner card. */
+function SkillSubList({ skill }: { skill: SelectedSkill }) {
+  return (
+    <ul className="ml-6 flex flex-col gap-1 border-l border-border pl-3">
+      <li className="flex items-start gap-1.5 text-xs text-muted-foreground">
+        <BookOpenCheck className="size-3 shrink-0 translate-y-0.5" />
+        <span>
+          Using playbook <span className="font-medium text-foreground">{skill.name}</span> — {skill.rationale}
+        </span>
+      </li>
+    </ul>
+  )
+}
+
+/** Shows how many documents were found in the matter, inline under "Verifying workspace membership". */
+function DocumentCountSubList({ count }: { count: number }) {
+  return (
+    <ul className="ml-6 flex flex-col gap-1 border-l border-border pl-3">
+      <li className="flex items-start gap-1.5 text-xs text-muted-foreground">
+        <FileSearch className="size-3 shrink-0 translate-y-0.5" />
+        <span>
+          {count} {count === 1 ? 'document' : 'documents'} found in this matter
+        </span>
+      </li>
+    </ul>
+  )
+}
+
 /**
  * No invented percentage progress here by design -- this is stage
  * completion only (pending/running/completed/failed/skipped per step), plus
@@ -129,6 +164,8 @@ export function ResearchStageTimeline({
   searchQueries,
   iteration,
   maxStageIndexReached,
+  skill,
+  documentCount,
   classificationLive,
   classificationStartedAt,
   classificationDurationMs,
@@ -142,6 +179,8 @@ export function ResearchStageTimeline({
   iteration: number
   /** The furthest stage index this run has ever reached -- see useMatterResearch. */
   maxStageIndexReached: number
+  skill?: SelectedSkill
+  documentCount: number
   classificationLive?: ClassificationLiveSignal
   classificationStartedAt?: number
   classificationDurationMs?: number
@@ -187,7 +226,9 @@ export function ResearchStageTimeline({
                 </span>
                 <DurationPill ms={durationMs} />
               </div>
+              {step === 'planning_searches' && skill && <SkillSubList skill={skill} />}
               {step === 'searching' && searchQueries.length > 0 && <SearchQuerySubList queries={searchQueries} />}
+              {step === 'verifying_membership' && documentCount > 0 && <DocumentCountSubList count={documentCount} />}
             </li>
           )
         })}

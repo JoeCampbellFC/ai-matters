@@ -26,7 +26,7 @@ const SkillSelectionSchema = z.object({
  * extra LLM call per run, not per refine pass.
  */
 async function selectSkill(state: ResearchState, config: NodeConfig): Promise<SelectedSkill> {
-  const summaries = listSkillSummaries()
+  const summaries = await listSkillSummaries()
   const prompt = [
     "Choose the research playbook that best matches this matter, based on its name and description only -- you haven't read any documents yet.",
     `Matter: ${state.workspace?.name ?? state.workspaceId}`,
@@ -41,7 +41,7 @@ async function selectSkill(state: ResearchState, config: NodeConfig): Promise<Se
 
   const model = getAzureChatModel().withStructuredOutput(SkillSelectionSchema)
   const response = await model.invoke(prompt, { signal: config.signal })
-  const matched = getSkill(response.skillName) ?? getFallbackSkill()
+  const matched = (await getSkill(response.skillName)) ?? (await getFallbackSkill())
   return { name: matched.name, description: matched.description, rationale: response.rationale }
 }
 
@@ -75,7 +75,7 @@ export async function planSearches(state: ResearchState, config: NodeConfig): Pr
       message: `Using the "${skill.name}" research playbook`,
     })
   }
-  const skillBody = getSkill(skill.name)?.body
+  const skillBody = (await getSkill(skill.name))?.body
 
   const instructions = isRefinement
     ? [
@@ -90,6 +90,15 @@ export async function planSearches(state: ResearchState, config: NodeConfig): Pr
           'to actually be about). Prefer several focused queries over one broad one.',
       ]
 
+  const queryStyle =
+    'Phrase each query the way you would ask a librarian to locate an item: describe the ' +
+    'document or email you need -- its type, parties, and any identifying detail (status, date, ' +
+    'subject) -- not a list of keywords, and not the information you want to extract from it. ' +
+    'For example, write "the executed share purchase agreement between Acme Corp and Globex, ' +
+    'including signed copies and amendments" or "emails between outside counsel and the deal team ' +
+    'about the settlement agreement in March 2026", not "share purchase agreement" and not ' +
+    '"what are the termination terms of the agreement".'
+
   const prompt = [
     'You are planning document searches for an iManage Work matter-research agent.',
     `Matter: ${state.workspace?.name ?? state.workspaceId}`,
@@ -97,6 +106,7 @@ export async function planSearches(state: ResearchState, config: NodeConfig): Pr
     state.workspace?.matter ? `Matter description: ${state.workspace.matter}` : undefined,
     skillBody ? `Research playbook guidance for this matter type:\n${skillBody}` : undefined,
     ...instructions,
+    queryStyle,
   ]
     .filter((line): line is string => Boolean(line))
     .join('\n')

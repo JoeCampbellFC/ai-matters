@@ -34,6 +34,8 @@ export const RESEARCH_STAGE_ORDER: ResearchStage[] = [
 
 export type ResearchRunStatus = 'running' | 'succeeded' | 'failed' | 'cancelled'
 
+export type BudgetLimitReason = 'max_iterations' | 'max_documents' | 'max_duration' | 'max_llm_calls' | 'max_mcp_calls'
+
 export type DocumentStatus = 'candidate' | 'selected' | 'reading' | 'reviewed' | 'used' | 'excluded'
 
 export type DiscoverySource = 'global_search'
@@ -144,7 +146,7 @@ export type ResearchEvent =
   | (ResearchEventBase & { type: 'coverage_assessed'; coveredTopics: string[]; gaps: CoverageGap[]; iteration: number })
   | (ResearchEventBase & {
       type: 'run_succeeded' | 'run_failed' | 'run_cancelled'
-      summary?: { documentsUsed: number; tokensUsed: number; durationMs: number }
+      summary?: { documentsUsed: number; tokensUsed: number; durationMs: number; budgetExceeded?: BudgetLimitReason }
       error?: { code: string; message: string }
     })
   | (ResearchEventBase & { type: 'classification_started' })
@@ -180,6 +182,7 @@ export interface RunSnapshot {
   coverage?: CoverageAssessment
   skill?: SelectedSkill
   error?: { code: string; message: string }
+  budgetExceeded?: BudgetLimitReason
 }
 
 export interface ResearchActivityItem {

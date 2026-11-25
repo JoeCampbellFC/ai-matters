@@ -7,7 +7,7 @@ import {
   reclassifyMatter,
   updateProfileFields,
 } from '@/services/matterProfileApi'
-import type { ClassificationFieldOption, MatterProfile, ProfileFieldUpdate } from '@/types/matterProfile'
+import type { ClassificationFieldOption, MatterProfile } from '@/types/matterProfile'
 import type { ResearchRunStatus } from '@/types/research'
 import type { ClassificationLiveSignal } from './useMatterResearch'
 
@@ -48,6 +48,13 @@ export function useMatterProfile(
       .then(setProfile)
       .catch(() => undefined)
   }, [workspaceId])
+
+  // Loads the durable, previously-persisted profile as soon as a workspace is opened --
+  // without this, a matter classified in an earlier session would show blank fields until
+  // a new research run (or live classification event) happened to fire in *this* session.
+  useEffect(() => {
+    refresh()
+  }, [refresh])
 
   // Refetch once research succeeds (auto-classification was just triggered
   // server-side) -- also covers revisiting a workspace that was already classified.
@@ -99,10 +106,6 @@ export function useMatterProfile(
       runAction(() => updateProfileFields(workspaceId, [{ fieldKey: fieldId, value: valueId, expectedVersion }])),
     [runAction, workspaceId],
   )
-  const saveProfileFields = useCallback(
-    (updates: ProfileFieldUpdate[]) => runAction(() => updateProfileFields(workspaceId, updates)),
-    [runAction, workspaceId],
-  )
 
   const isClassifying = live.classificationLive?.status === 'classifying'
 
@@ -117,6 +120,5 @@ export function useMatterProfile(
     retryClassification,
     reclassify,
     correct,
-    saveProfileFields,
   }
 }

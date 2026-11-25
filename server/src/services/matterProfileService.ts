@@ -21,7 +21,7 @@ import {
   type MatterFieldDefinition,
 } from '../database/repositories/fieldDefinitionRepository.js'
 import { getCurrentVersion } from '../database/repositories/knowledgeRepository.js'
-import { getMatterById } from '../database/repositories/matterRepository.js'
+import { getMatterById, updateMatterMetadata, type Matter } from '../database/repositories/matterRepository.js'
 import {
   getFieldValue,
   listFieldValues,
@@ -326,6 +326,20 @@ function resolveUpdateValue(definition: MatterFieldDefinition, rawValue: unknown
 }
 
 /**
+ * matter_field_values is the source of truth for every profile field, but
+ * the `matters` row carries its own denormalized copies of client name and
+ * status (clientName/status) for cheap, no-join reads -- e.g. the Workspaces
+ * list's batch summary (matterRepository.listMattersByWorkspaceIds). Keeps
+ * those copies from going stale whenever the corresponding profile field is
+ * edited here.
+ */
+function matterMetadataFor(fieldKey: string, value: unknown): Partial<Pick<Matter, 'clientName' | 'status'>> {
+  if (fieldKey === 'client_name') return { clientName: (value as string | null) ?? null }
+  if (fieldKey === 'matter_status') return { status: (value as { valueId: string }).valueId }
+  return {}
+}
+
+/**
  * Generalized field editor -- handles BOTH the 16 AI-field manual overrides
  * (value = the chosen choice id, re-expressed as {valueId,label}) and the
  * pure-profile fields (value = the raw typed value), through the same
@@ -342,6 +356,8 @@ export async function updateProfileFields(matterId: string, updates: ProfileFiel
   const definitionsByKey = new Map(definitions.map((d) => [d.fieldKey, d]))
 
   await getDb().transaction(async (tx) => {
+    let metadataUpdates: Partial<Pick<Matter, 'clientName' | 'status'>> = {}
+
     for (const update of updates) {
       const definition = definitionsByKey.get(update.fieldKey)
       if (!definition) throw new Error(`Unknown field key "${update.fieldKey}".`)
@@ -373,6 +389,11 @@ export async function updateProfileFields(matterId: string, updates: ProfileFiel
         },
         tx,
       )
+      metadataUpdates = { ...metadataUpdates, ...matterMetadataFor(update.fieldKey, after.value) }
+    }
+
+    if (Object.keys(metadataUpdates).length > 0) {
+      await updateMatterMetadata(matterId, metadataUpdates, tx)
     }
   })
 

@@ -41,7 +41,7 @@ export async function rankCandidates(state: ResearchState, config: NodeConfig): 
     )
     .join('\n')
 
-  const skillBody = state.skill ? getSkill(state.skill.name)?.body : undefined
+  const skillBody = state.skill ? (await getSkill(state.skill.name))?.body : undefined
 
   const prompt = [
     'Assess how useful each candidate document is likely to be for understanding this iManage matter, using only',

@@ -12,11 +12,13 @@ import { librariesRouter } from './routes/libraries.js'
 import { matterResearchRouter } from './routes/matterResearch.js'
 import { matterProfileRouter } from './routes/matterProfile.js'
 import { fieldDefinitionsRouter } from './routes/fieldDefinitions.js'
+import { skillsRouter } from './routes/skills.js'
 import { classifyError } from './httpErrors.js'
 import { verifyAzureOpenAiConnectivity } from './llm/azureOpenAI.js'
 import { sweepStaleRuns } from './matterResearch/runManager.js'
 import { verifyDatabaseConnectivity } from './database/connection.js'
 import { seedFieldDefinitions } from './database/repositories/fieldDefinitionRepository.js'
+import { seedDefaultSkills } from './database/repositories/skillsRepository.js'
 
 const app = express()
 
@@ -44,6 +46,7 @@ app.use('/api/libraries', librariesRouter)
 app.use('/api/matters', matterResearchRouter)
 app.use('/api/matters', matterProfileRouter)
 app.use('/api/field-definitions', fieldDefinitionsRouter)
+app.use('/api/skills', skillsRouter)
 
 // Populated only in the deployed package (the CI pipeline copies the built
 // frontend here, see azure-pipelines.yml) -- absent in local dev, where Vite
@@ -89,7 +92,7 @@ verifyAzureOpenAiConnectivity().catch((error) => {
 // depend on Postgres. seedFieldDefinitions() is idempotent (onConflictDoNothing),
 // safe to run on every boot.
 verifyDatabaseConnectivity()
-  .then(() => seedFieldDefinitions())
+  .then(() => Promise.all([seedFieldDefinitions(), seedDefaultSkills()]))
   .catch((error) => {
     console.error('[server] Database connectivity/seed check failed at startup:', (error as Error).message)
   })

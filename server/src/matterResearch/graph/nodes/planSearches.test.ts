@@ -13,6 +13,18 @@ const { invoke, getAzureChatModel } = vi.hoisted(() => {
 
 vi.mock('../../../llm/azureOpenAI.js', () => ({ getAzureChatModel }))
 
+const SKILLS: Record<string, { name: string; description: string; body: string }> = {
+  'general-matter-research': { name: 'general-matter-research', description: 'Default strategy.', body: 'General guidance.' },
+  'ma-matter-research': { name: 'ma-matter-research', description: 'M&A playbook.', body: 'M&A guidance.' },
+}
+
+vi.mock('../../skills.js', () => ({
+  FALLBACK_SKILL_NAME: 'general-matter-research',
+  listSkillSummaries: vi.fn(async () => Object.values(SKILLS).map(({ name, description }) => ({ name, description }))),
+  getSkill: vi.fn(async (name: string) => SKILLS[name]),
+  getFallbackSkill: vi.fn(async () => SKILLS['general-matter-research']),
+}))
+
 const { planSearches } = await import('./planSearches.js')
 
 function state(overrides: Partial<ResearchState> = {}): ResearchState {

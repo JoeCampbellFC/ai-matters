@@ -3,6 +3,7 @@ import { ApiError } from '@/services/api'
 import { cancelResearch, fetchRunSnapshot, startResearch, subscribeToResearchEvents } from '@/services/matterResearchApi'
 import {
   RESEARCH_STAGE_ORDER,
+  type BudgetLimitReason,
   type CoverageAssessment,
   type ResearchActivityItem,
   type ResearchDocument,
@@ -52,6 +53,8 @@ interface MatterResearchState {
   coverage?: CoverageAssessment
   skill?: SelectedSkill
   error?: { code: string; message: string }
+  /** Set when the run stopped early because it hit a budget limit (e.g. max documents/LLM calls) rather than finishing naturally. */
+  budgetExceeded?: BudgetLimitReason
   /** Cumulative durations (ms) across every pass a stage has run for so far. */
   stageDurationsMs: Partial<Record<ResearchStage, number>>
   /** Epoch ms the *current* stage started -- lets the UI tick a live elapsed counter. */
@@ -183,7 +186,12 @@ function applyEvent(state: MatterResearchState, event: ResearchEvent): MatterRes
     case 'coverage_assessed':
       return { ...state, coverage: { coveredTopics: event.coveredTopics, gaps: event.gaps } }
     case 'run_succeeded':
-      return { ...state, ...finalizeStageDuration(state, undefined, event.ts), status: 'succeeded' }
+      return {
+        ...state,
+        ...finalizeStageDuration(state, undefined, event.ts),
+        status: 'succeeded',
+        budgetExceeded: event.summary?.budgetExceeded,
+      }
     case 'run_failed':
       return { ...state, ...finalizeStageDuration(state, undefined, event.ts), status: 'failed', error: event.error }
     case 'run_cancelled':
@@ -280,6 +288,7 @@ function reducer(state: MatterResearchState, action: Action): MatterResearchStat
         coverage: action.snapshot.coverage,
         skill: action.snapshot.skill,
         error: action.snapshot.error,
+        budgetExceeded: action.snapshot.budgetExceeded,
       }
     }
     case 'event':
@@ -369,6 +378,7 @@ export function useMatterResearch(workspaceId: string) {
     coverage: state.coverage,
     skill: state.skill,
     error: state.error,
+    budgetExceeded: state.budgetExceeded,
     stageDurationsMs: state.stageDurationsMs,
     currentStageStartedAt: state.currentStageStartedAt,
     classificationLive: state.classificationLive,
