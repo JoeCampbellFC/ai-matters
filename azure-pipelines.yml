@@ -1,7 +1,11 @@
 # AI Matters CI/CD -- builds and tests both the frontend and the server,
 # then deploys a self-contained package to a single Azure App Service (see
-# infra/main.bicep). Infra/app-settings/secrets are provisioned separately,
-# once, via that Bicep template -- this pipeline only ever ships code.
+# infra/main.bicep). Infra itself (the App Service, Postgres, etc.) is
+# provisioned separately, once, via that Bicep template -- this pipeline
+# ships code, plus keeps a small set of rotatable secrets (see the
+# 'ai-matters-secrets' variable group below) in sync with the App Service's
+# app settings on every run, so rotating e.g. AZURE_OPENAI_API_KEY never
+# needs a manual az command.
 #
 # infra/main.bicep has already been deployed (resource group fm-ai-matters,
 # App Service fm-ai-matters, F1 Free tier); both variables below already
@@ -16,9 +20,15 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  nodeVersion: '22.x'
-  azureServiceConnectionName: 'ai-matters-azure'
-  appServiceName: 'fm-ai-matters'
+  - group: ai-matters-secrets
+  - name: nodeVersion
+    value: '22.x'
+  - name: azureServiceConnectionName
+    value: 'ai-matters-azure'
+  - name: appServiceName
+    value: 'fm-ai-matters'
+  - name: resourceGroupName
+    value: 'fm-ai-matters'
 
 stages:
   - stage: Build
@@ -106,3 +116,23 @@ stages:
               appType: webAppLinux
               appName: '$(appServiceName)'
               package: '$(Pipeline.Workspace)/app/app.zip'
+
+          - task: AzureCLI@2
+            displayName: 'Sync rotatable secrets to app settings'
+            inputs:
+              azureSubscription: '$(azureServiceConnectionName)'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -e
+                az webapp config appsettings set \
+                  --name "$(appServiceName)" \
+                  --resource-group "$(resourceGroupName)" \
+                  --settings AZURE_OPENAI_API_KEY="$AZURE_OPENAI_API_KEY" \
+                  --output none
+            env:
+              # Secret variables don't expand via $(...) macro syntax inside a script body --
+              # they must be mapped to an env var here instead. Add more lines the same way
+              # (and another --settings KEY="$VALUE" above) for any other secret that needs
+              # to stay in sync, e.g. SESSION_SECRET.
+              AZURE_OPENAI_API_KEY: $(AZURE_OPENAI_API_KEY)
