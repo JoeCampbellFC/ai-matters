@@ -364,6 +364,11 @@ async function runGraph(run: ResearchRunRecord, client: Client, tools: Tool[]): 
     const classified = classifyError(error)
     run.status = 'failed'
     run.error = { code: classified.code, message: classified.message }
+    // The graph runs detached from any HTTP request/response cycle, so this never reaches
+    // Express's generic error-handling middleware (where '[server] unhandled error' is logged) --
+    // without this, a failed run is visible only via the SSE event to whichever client happened
+    // to be watching, never in server logs at all.
+    console.error(`[research:${run.runId}] run failed:`, classified.code, classified.message)
     pushEvent(run, { type: 'run_failed', error: run.error })
     recordRunCompleted({ id: run.runId, researchStatus: 'failed', completedAt: new Date(), errorSummary: classified.message }).catch(
       (dbError: unknown) => console.error(`[research:${run.runId}] failed to record run failure:`, (dbError as Error).message),

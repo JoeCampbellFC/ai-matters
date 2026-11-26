@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, ArrowUpDown, FolderOpen, Inbox } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink, FolderOpen, Inbox } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -13,6 +13,9 @@ import {
 } from '@/components/ui/table'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { AlertCircle } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useMcpStatus } from '@/hooks/useMcpConnection'
+import { buildImanageWorkspaceUrl } from '@/lib/imanageUrl'
 import type { MatterSummary } from '@/types/matterProfile'
 import type { Workspace } from '@/types/workspace'
 
@@ -58,6 +61,7 @@ export function WorkspaceTable({
 }: WorkspaceTableProps) {
   const showMatterColumn = Boolean(matterSummaries?.size)
   const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null)
+  const { data: mcpStatus } = useMcpStatus()
 
   const visibleColumns = useMemo(() => COLUMNS.filter((column) => column.show(workspaces)), [workspaces])
 
@@ -103,7 +107,7 @@ export function WorkspaceTable({
                 <TableHead key={column.key}>{column.label}</TableHead>
               ))}
               {showMatterColumn && <TableHead>Knowledge</TableHead>}
-              <TableHead className="w-24" />
+              <TableHead className="w-36" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -166,7 +170,7 @@ export function WorkspaceTable({
               </TableHead>
             ))}
             {showMatterColumn && <TableHead>Knowledge</TableHead>}
-            <TableHead className="w-24">Action</TableHead>
+            <TableHead className="w-36">Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -192,17 +196,36 @@ export function WorkspaceTable({
                 </TableCell>
               )}
               <TableCell>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onSelect(workspace)
-                  }}
-                >
-                  <FolderOpen className="size-3.5" />
-                  Open
-                </Button>
+                <div className="flex items-center justify-end gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onSelect(workspace)
+                    }}
+                  >
+                    <FolderOpen className="size-3.5" />
+                    Open
+                  </Button>
+                  {(() => {
+                    const imanageUrl = buildImanageWorkspaceUrl(mcpStatus?.environment, workspace.id)
+                    if (!imanageUrl) return null
+                    return (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" size="icon-sm" asChild onClick={(event) => event.stopPropagation()}>
+                            <a href={imanageUrl} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="size-3.5" />
+                              <span className="sr-only">Open in iManage</span>
+                            </a>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Open in iManage</TooltipContent>
+                      </Tooltip>
+                    )
+                  })()}
+                </div>
               </TableCell>
             </TableRow>
           ))}

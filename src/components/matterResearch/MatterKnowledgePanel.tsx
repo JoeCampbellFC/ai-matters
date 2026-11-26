@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { VisuallyHidden } from 'radix-ui'
-import { Activity, AlertCircle, AlertTriangle, Loader2, TerminalIcon } from 'lucide-react'
+import { Activity, AlertCircle, AlertTriangle, ExternalLink, Loader2, TerminalIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,6 +11,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useMatterKnowledge } from '@/hooks/useMatterKnowledge'
 import { useMatterResearch } from '@/hooks/useMatterResearch'
+import { useMcpStatus } from '@/hooks/useMcpConnection'
+import { buildImanageWorkspaceUrl } from '@/lib/imanageUrl'
 import { MatterProfileCard } from '@/components/matterProfile/MatterProfileCard'
 import { MarkdownEditor } from '@/components/matterKnowledge/MarkdownEditor'
 import { MarkdownVersionHistory } from '@/components/matterKnowledge/MarkdownVersionHistory'
@@ -34,6 +36,8 @@ const BUDGET_EXCEEDED_LABELS: Record<BudgetLimitReason, string> = {
 
 export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
   const workspaceId = workspace.id
+  const { data: mcpStatus } = useMcpStatus()
+  const imanageUrl = buildImanageWorkspaceUrl(mcpStatus?.environment, workspaceId)
   const {
     status,
     stage,
@@ -194,6 +198,14 @@ export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
+        {imanageUrl && (
+          <Button variant="outline" asChild>
+            <a href={imanageUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="size-4" />
+              Open in iManage
+            </a>
+          </Button>
+        )}
         <GenerateSummaryButton status={status} onStart={() => void start()} />
         {status === 'running' && (
           <Button variant="outline" onClick={cancel}>
