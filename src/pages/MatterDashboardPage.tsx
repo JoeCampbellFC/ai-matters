@@ -7,9 +7,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { DashboardHero } from '@/components/matterDashboard/DashboardHero'
 import { DashboardWidgetGrid } from '@/components/matterDashboard/DashboardWidgetGrid'
 import { DocumentsWidget } from '@/components/matterDashboard/widgets/DocumentsWidget'
+import { MatterOverviewWidget } from '@/components/matterDashboard/widgets/MatterOverviewWidget'
 import { DocumentFocusProvider } from '@/context/DocumentFocusContext'
 import { useWorkspaceCache } from '@/context/WorkspaceCacheContext'
 import { useMatterDashboard } from '@/hooks/useMatterDashboard'
+import type { DashboardWidget } from '@/types/dashboard'
 
 export function MatterDashboardPage() {
   const { id } = useParams<{ id: string }>()
@@ -17,6 +19,9 @@ export function MatterDashboardPage() {
   const workspace = id ? getWorkspace(id) : undefined
   const workspaceId = id ?? ''
   const { data, loading, generating, error, generate } = useMatterDashboard(workspaceId)
+  const allWidgets = data?.projection?.widgets ?? []
+  const overviewWidget = allWidgets.find((w): w is Extract<DashboardWidget, { type: 'overview' }> => w.type === 'overview')
+  const otherWidgets = allWidgets.filter((w) => w.type !== 'overview')
 
   if (!workspace) {
     return (
@@ -58,6 +63,12 @@ export function MatterDashboardPage() {
           </Alert>
         )}
 
+        <MatterOverviewWidget
+          matterDescription={workspace.matter}
+          summaryWidget={overviewWidget}
+          citationRegistry={data?.citationRegistry ?? []}
+        />
+
         <DocumentsWidget workspaceId={workspaceId} citationRegistry={data?.citationRegistry ?? []} />
 
         {loading ? (
@@ -87,7 +98,7 @@ export function MatterDashboardPage() {
                 Regenerate
               </Button>
             </div>
-            <DashboardWidgetGrid widgets={data.projection?.widgets ?? []} citationRegistry={data.citationRegistry} />
+            <DashboardWidgetGrid widgets={otherWidgets} citationRegistry={data.citationRegistry} />
           </>
         )}
       </div>
