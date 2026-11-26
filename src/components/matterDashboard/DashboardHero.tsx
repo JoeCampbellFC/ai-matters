@@ -106,11 +106,11 @@ export function DashboardHero({
         )}
       </CardHeader>
       <CardContent>
-        <dl className="flex flex-wrap gap-x-8 gap-y-3">
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
           {metadata.map((item) => (
-            <div key={item.label} className="flex items-start gap-2">
+            <div key={item.label} className="flex min-w-0 items-start gap-2">
               <item.icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <div className="flex flex-col gap-0.5">
+              <div className="flex min-w-0 flex-col gap-0.5">
                 <dt className="text-xs font-medium text-muted-foreground">{item.label}</dt>
                 <dd className="text-sm text-foreground">{item.value}</dd>
               </div>
