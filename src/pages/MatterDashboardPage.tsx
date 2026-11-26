@@ -54,7 +54,11 @@ export function MatterDashboardPage() {
           </Link>
         </Button>
 
-        <DashboardHero workspace={workspace} />
+        <DashboardHero
+          workspace={workspace}
+          onRegenerate={data?.generated ? () => void generate() : undefined}
+          regenerating={generating}
+        />
 
         {error && (
           <Alert variant="destructive">
@@ -91,15 +95,7 @@ export function MatterDashboardPage() {
             </CardHeader>
           </Card>
         ) : (
-          <>
-            <div className="flex justify-end">
-              <Button variant="ghost" size="sm" onClick={() => void generate()} disabled={generating}>
-                {generating ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                Regenerate
-              </Button>
-            </div>
-            <DashboardWidgetGrid widgets={otherWidgets} citationRegistry={data.citationRegistry} />
-          </>
+          <DashboardWidgetGrid widgets={otherWidgets} citationRegistry={data.citationRegistry} />
         )}
       </div>
     </DocumentFocusProvider>
