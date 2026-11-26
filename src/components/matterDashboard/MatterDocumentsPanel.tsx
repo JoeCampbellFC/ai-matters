@@ -27,10 +27,10 @@ export function MatterDocumentsPanel({ workspaceId, citationRegistry }: { worksp
   const { path, children, hasMore, loading, error, openFolder, goToCrumb, loadMore, searchResult, searching, searchError, search } =
     useMatterDocuments(workspaceId)
   const [query, setQuery] = useState('')
-  const { focusedMarker } = useDocumentFocus()
+  const { focusedMarker, activeTab, setActiveTab } = useDocumentFocus()
 
   return (
-    <Tabs defaultValue={focusedMarker ? 'sources' : 'browse'} className="flex h-full min-h-0 flex-col gap-2">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full min-h-0 flex-col gap-2">
       <TabsList>
         <TabsTrigger value="browse">Browse</TabsTrigger>
         <TabsTrigger value="search">Search</TabsTrigger>
