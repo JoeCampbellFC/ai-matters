@@ -1,5 +1,14 @@
-import { integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 import { matters } from './matters.js'
+
+/** Mirrors server/src/matterResearch/types.ts's CitationRegistryEntry -- duplicated here (schema files don't import from matterResearch/) rather than imported, since this is a storage shape, not a research-pipeline concern. */
+export interface KnowledgeCitationEntry {
+  marker: string
+  documentId: string
+  documentName?: string
+  version?: string
+  link?: string
+}
 
 /**
  * Immutable Markdown snapshots -- editing never overwrites a row, it inserts
@@ -24,6 +33,15 @@ export const matterKnowledgeVersions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     parentVersionId: uuid('parent_version_id'),
     changeSummary: text('change_summary'),
+    /**
+     * Snapshot of the research run's document->marker mapping at publish time
+     * -- Phase 2's CitationRegistryEntry[] was previously discarded once the
+     * in-memory run record aged out (runManager.ts's sweepStaleRuns), leaving
+     * only the rendered "## Key Document Register" prose in `content`. Null
+     * for versions published before this column existed, and for user-edited
+     * versions (editMarkdown never supplies one).
+     */
+    citationRegistry: jsonb('citation_registry').$type<KnowledgeCitationEntry[] | null>(),
   },
   (table) => [unique('matter_knowledge_versions_matter_version_key').on(table.matterId, table.versionNumber)],
 )

@@ -9,6 +9,7 @@ import {
   buildRecentWorkspacesArgs,
   buildSearchFoldersArgs,
   buildSearchWorkspacesArgs,
+  scopedSearchQuery,
 } from './tools.js'
 import { UnsupportedSearchInputError } from './errors.js'
 
@@ -214,5 +215,34 @@ describe('buildGetDocumentProfileArgs / buildFetchArgs', () => {
     })
     expect(buildGetDocumentProfileArgs(t, { documentId: 'DOC-1' })).toEqual({ document_id: 'DOC-1' })
     expect(buildFetchArgs(t, { documentId: 'DOC-1' })).toEqual({ document_id: 'DOC-1' })
+  })
+})
+
+describe('scopedSearchQuery', () => {
+  it('embeds both client and matter identifiers when both are present', () => {
+    const workspace = { raw: { custom1: '3456', custom2: '7659' } }
+    expect(scopedSearchQuery(workspace, 'arbitration-related documents')).toBe(
+      'Search client 3456, matter 7659 for arbitration-related documents',
+    )
+  })
+
+  it('embeds only the client identifier when matter is absent', () => {
+    const workspace = { raw: { custom1: '3456' } }
+    expect(scopedSearchQuery(workspace, 'q')).toBe('Search client 3456 for q')
+  })
+
+  it('embeds only the matter identifier when client is absent', () => {
+    const workspace = { raw: { custom2: '7659' } }
+    expect(scopedSearchQuery(workspace, 'q')).toBe('Search matter 7659 for q')
+  })
+
+  it('returns the query unchanged when neither identifier nor a workspace is present', () => {
+    expect(scopedSearchQuery({ raw: {} }, 'q')).toBe('q')
+    expect(scopedSearchQuery(undefined, 'q')).toBe('q')
+  })
+
+  it('ignores blank/whitespace-only raw fields', () => {
+    const workspace = { raw: { custom1: '   ', custom2: 7659 } }
+    expect(scopedSearchQuery(workspace, 'q')).toBe('q')
   })
 })

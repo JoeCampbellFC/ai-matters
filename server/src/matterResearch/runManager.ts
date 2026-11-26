@@ -194,6 +194,7 @@ function triggerClassification(run: ResearchRunRecord, workspaceName: string | u
       researchRunId: run.runId,
       markdown: run.result.markdown,
       createdBy: run.actor,
+      citationRegistry: run.result.citationRegistry,
     },
     {
       onStarted: () => pushEvent(run, { type: 'classification_started' }),

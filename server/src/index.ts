@@ -11,6 +11,8 @@ import { workspacesRouter } from './routes/workspaces.js'
 import { librariesRouter } from './routes/libraries.js'
 import { matterResearchRouter } from './routes/matterResearch.js'
 import { matterProfileRouter } from './routes/matterProfile.js'
+import { matterDashboardRouter } from './routes/matterDashboard.js'
+import { matterDocumentsRouter } from './routes/matterDocuments.js'
 import { fieldDefinitionsRouter } from './routes/fieldDefinitions.js'
 import { skillsRouter } from './routes/skills.js'
 import { classifyError } from './httpErrors.js'
@@ -45,6 +47,8 @@ app.use('/api/workspaces', workspacesRouter)
 app.use('/api/libraries', librariesRouter)
 app.use('/api/matters', matterResearchRouter)
 app.use('/api/matters', matterProfileRouter)
+app.use('/api/matters', matterDashboardRouter)
+app.use('/api/matters', matterDocumentsRouter)
 app.use('/api/field-definitions', fieldDefinitionsRouter)
 app.use('/api/skills', skillsRouter)
 

@@ -15,6 +15,13 @@
       "when": 1795555407628,
       "tag": "0001_stormy_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795690338886,
+      "tag": "0002_overrated_energizer",
+      "breakpoints": true
     }
   ]
 }

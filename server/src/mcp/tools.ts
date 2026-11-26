@@ -231,6 +231,29 @@ export function buildGetContainerChildrenArgs(
  * unverified leads only (see matterResearch/membership.ts), never trusted as
  * workspace members by construction.
  */
+function rawWorkspaceField(raw: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value = raw?.[key]
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined
+}
+
+/**
+ * Embeds client (custom1) and matter (custom2) identifiers directly into a
+ * `search` query's text, the way iManage's own docs phrase it (e.g. "Search
+ * client 3456, matter 7659 for arbitration-related documents") -- `search`
+ * has no structured workspace/container-scoping parameter of its own. This
+ * scopes results toward the right matter but is still a best-effort text
+ * match, not a guarantee -- every hit still needs independent workspace
+ * membership verification before being trusted (see matterResearch/membership.ts).
+ */
+export function scopedSearchQuery(workspace: { raw: Record<string, unknown> } | undefined, query: string): string {
+  const client = rawWorkspaceField(workspace?.raw, 'custom1')
+  const matter = rawWorkspaceField(workspace?.raw, 'custom2')
+  if (client && matter) return `Search client ${client}, matter ${matter} for ${query}`
+  if (client) return `Search client ${client} for ${query}`
+  if (matter) return `Search matter ${matter} for ${query}`
+  return query
+}
+
 export function buildGlobalSearchArgs(
   tool: Tool,
   input: { query: string; cursor?: string; limit?: number },

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { VisuallyHidden } from 'radix-ui'
-import { Activity, AlertCircle, AlertTriangle, ExternalLink, Loader2, TerminalIcon } from 'lucide-react'
+import { Activity, AlertCircle, AlertTriangle, ExternalLink, LayoutDashboard, Loader2, TerminalIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -205,6 +206,26 @@ export function MatterKnowledgePanel({ workspace }: { workspace: Workspace }) {
               Open in iManage
             </a>
           </Button>
+        )}
+        {currentVersion ? (
+          <Button variant="outline" asChild>
+            <Link to={`/workspaces/${encodeURIComponent(workspaceId)}/dashboard`}>
+              <LayoutDashboard className="size-4" />
+              View Dashboard
+            </Link>
+          </Button>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button variant="outline" disabled>
+                  <LayoutDashboard className="size-4" />
+                  View Dashboard
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Generate a Matter Knowledge File first.</TooltipContent>
+          </Tooltip>
         )}
         <GenerateSummaryButton status={status} onStart={() => void start()} />
         {status === 'running' && (

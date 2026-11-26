@@ -32,6 +32,7 @@ import { recordAuditEvent } from '../database/repositories/auditRepository.js'
 import { MarkdownNotPublishedError, MatterNotFoundError } from '../database/errors.js'
 import { validateFieldValue } from './fieldValueValidation.js'
 import { publishGeneratedMarkdown } from './matterKnowledgeService.js'
+import type { KnowledgeCitationEntry } from '../database/repositories/knowledgeRepository.js'
 import type { MatterProfile, MatterProfileField, MatterProfileFieldView, ProfileFieldUpdate } from './types.js'
 
 export interface ClassificationEventSink {
@@ -167,6 +168,7 @@ export interface ClassifyFromRunInput {
   markdown: string
   researchRunId: string
   createdBy: string
+  citationRegistry?: KnowledgeCitationEntry[]
 }
 
 /**
@@ -184,6 +186,7 @@ export async function classifyFromCompletedRun(
     markdown: input.markdown,
     researchRunId: input.researchRunId,
     createdBy: input.createdBy,
+    citationRegistry: input.citationRegistry,
   })
   const profile = await classifyAllFieldsForMatter(input.matterId, version, input.createdBy, sink)
   return { versionId: version.id, profile }

@@ -1,9 +1,10 @@
 import { and, desc, eq, max, ne } from 'drizzle-orm'
 import { type Db, getDb } from '../connection.js'
-import { matterKnowledgeVersions } from '../schema/matterKnowledge.js'
+import { type KnowledgeCitationEntry, matterKnowledgeVersions } from '../schema/matterKnowledge.js'
 import { matters } from '../schema/matters.js'
 
 export type MatterKnowledgeVersion = typeof matterKnowledgeVersions.$inferSelect
+export type { KnowledgeCitationEntry }
 
 export interface CreateVersionInput {
   matterId: string
@@ -14,6 +15,7 @@ export interface CreateVersionInput {
   createdBy: string
   parentVersionId?: string
   changeSummary?: string
+  citationRegistry?: KnowledgeCitationEntry[]
 }
 
 /** Always call within the same transaction as the matters.currentMarkdownVersionId update that follows it (see matterKnowledgeService.ts) -- a version must never exist without the matter pointing at it, or vice versa. */
@@ -36,6 +38,7 @@ export async function createVersion(input: CreateVersionInput, db: Db = getDb())
       createdBy: input.createdBy,
       parentVersionId: input.parentVersionId,
       changeSummary: input.changeSummary,
+      citationRegistry: input.citationRegistry ?? null,
     })
     .returning()
   return row!

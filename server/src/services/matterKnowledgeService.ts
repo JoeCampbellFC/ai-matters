@@ -5,6 +5,7 @@ import {
   getVersion,
   listVersions,
   markOtherVersionsSuperseded,
+  type KnowledgeCitationEntry,
   type MatterKnowledgeVersion,
 } from '../database/repositories/knowledgeRepository.js'
 import { setCurrentMarkdownVersion } from '../database/repositories/matterRepository.js'
@@ -25,6 +26,7 @@ export interface PublishGeneratedMarkdownInput {
   markdown: string
   researchRunId: string
   createdBy: string
+  citationRegistry?: KnowledgeCitationEntry[]
 }
 
 /**
@@ -48,6 +50,7 @@ export async function publishGeneratedMarkdown(input: PublishGeneratedMarkdownIn
         source: 'ai_generated',
         researchRunId: input.researchRunId,
         createdBy: input.createdBy,
+        citationRegistry: input.citationRegistry,
       },
       tx,
     )
